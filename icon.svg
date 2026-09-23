@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#1a2133"/>
+      <stop offset="100%" stop-color="#0f1420"/>
+    </radialGradient>
+    <radialGradient id="orb" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#a9d0e0"/>
+      <stop offset="100%" stop-color="#8ab4c9"/>
+    </radialGradient>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur stdDeviation="26" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- concentric rings: the soundscape spreading out from a single source -->
+  <g fill="none" stroke="#8ab4c9" stroke-linecap="round">
+    <circle cx="256" cy="256" r="104" stroke-opacity=".30" stroke-width="7"/>
+    <circle cx="256" cy="256" r="150" stroke-opacity=".18" stroke-width="7"/>
+    <circle cx="256" cy="256" r="196" stroke-opacity=".09" stroke-width="7"/>
+  </g>
+  <circle cx="256" cy="256" r="58" fill="url(#orb)" filter="url(#glow)"/>
+</svg>
