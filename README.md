@@ -1,5 +1,7 @@
 # Ambience
 
+[![verify](https://github.com/steverowley/ambience-mixer/actions/workflows/verify.yml/badge.svg)](https://github.com/steverowley/ambience-mixer/actions/workflows/verify.yml)
+
 A calm soundscape mixer. Stack YouTube videos as audio layers, each with its own
 volume, speed and loop, and blend them into something to work, read or sleep to.
 

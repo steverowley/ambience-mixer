@@ -1,0 +1,89 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The suite is dependency-free: it runs the app's real IIFE in a stub
+      # DOM and asserts on behaviour as well as on the source.
+      - name: Run verify.js
+        run: node .dev/verify.js
+
+  assets:
+    name: Static assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Service worker parses
+        run: node --check sw.js
+
+      - name: JSON is valid
+        run: |
+          for f in vercel.json manifest.webmanifest; do
+            python3 -c "import json,sys; json.load(open('$f'))" && echo "ok  $f"
+          done
+
+      # Every asset index.html references from our own origin must exist,
+      # or the PWA install and the font swap break silently in production.
+      - name: Referenced local assets exist
+        run: |
+          missing=0
+          for f in $(grep -oE '(href|src)="/[^"]+"' index.html \
+                     | sed -E 's/.*"\/([^"]+)"/\1/' | sort -u); do
+            if [ -f "$f" ]; then
+              echo "ok      $f"
+            else
+              echo "MISSING $f"; missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Manifest icons exist
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, sys
+          icons = json.load(open("manifest.webmanifest"))["icons"]
+          missing = []
+          for i in icons:
+              p = pathlib.Path(i["src"].lstrip("/"))
+              print(("ok      " if p.is_file() else "MISSING ") + str(p))
+              if not p.is_file():
+                  missing.append(str(p))
+          sys.exit(1 if missing else 0)
+          PY
+
+  licence:
+    name: Licence notice
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The app is proprietary; the notice must not be dropped by an edit.
+      - name: Notice present in shipped file
+        run: |
+          grep -q "All rights reserved" index.html || {
+            echo "index.html is missing the copyright notice"; exit 1; }
+          grep -q "PROPRIETARY SOFTWARE" LICENSE || {
+            echo "LICENSE is missing the proprietary header"; exit 1; }
+          echo "ok  licence notices intact"
