@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1420">
+<title>Ambience — a calm soundscape mixer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1420;
+    --indigo:#3b4e86; --purple:#5a4b7c; --teal:#2a6e6a;
+    --glass:rgba(255,255,255,.05); --glass-hi:rgba(255,255,255,.08);
+    --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --raised:#1a2133;
+    --text:#eaecf4; --text2:#a6adc4; --muted:#6c7594;
+    --accent:#8ab4c9; --accent-glow:#a9d0e0; --warm:#d9a87e;
+    --radius:20px; --radius-sm:13px;
+    --ease:cubic-bezier(.22,1,.36,1);
+    --ease-sym:cubic-bezier(.65,0,.35,1);
+    --shadow:0 8px 30px rgba(8,11,22,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--text); background:var(--bg); min-height:100vh;
+    -webkit-font-smoothing:antialiased; padding:0 0 148px; position:relative; overflow-x:hidden;
+  }
+  /* ---------- Aurora background ---------- */
+  .aurora{position:fixed; inset:0; z-index:-2; overflow:hidden; background:var(--bg);
+    background-image:
+      radial-gradient(45% 55% at 20% 28%, rgba(59,78,134,.55) 0%, transparent 70%),
+      radial-gradient(45% 55% at 80% 24%, rgba(42,110,106,.42) 0%, transparent 70%),
+      radial-gradient(52% 60% at 62% 80%, rgba(90,75,124,.46) 0%, transparent 72%),
+      radial-gradient(40% 50% at 28% 84%, rgba(59,78,134,.40) 0%, transparent 72%);
+  }
+  .aurora::before{content:""; position:absolute; inset:-25%;
+    background:conic-gradient(from 120deg at 50% 42%, #3b4e86, #2a6e6a, #5a4b7c, #45589a, #3b4e86);
+    filter:blur(95px) saturate(1.15); opacity:.28;
+    animation:drift 40s var(--ease-sym) infinite alternate; will-change:transform;
+  }
+  @keyframes drift{
+    from{transform:translate3d(-4%,-2%,0) rotate(0deg) scale(1)}
+    to{transform:translate3d(4%,3%,0) rotate(7deg) scale(1.12)}
+  }
+  .grain{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:170px 170px;
+  }
+
+  /* ---------- Header ---------- */
+  header{position:sticky; top:0; z-index:20; backdrop-filter:blur(14px);
+    background:rgba(15,20,32,.55); border-bottom:1px solid var(--line-soft);
+    padding:20px 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .orb{width:13px; height:13px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--accent-glow), var(--accent));
+    box-shadow:0 0 16px var(--accent); animation:breathe 7s var(--ease-sym) infinite;}
+  .brand h1{font-family:"Fraunces",serif; font-weight:400; font-size:23px; letter-spacing:-.01em; margin:0;}
+  .brand .tag{color:var(--text2); font-size:12.5px; margin-left:3px; align-self:center}
+  .spacer{flex:1}
+  @keyframes breathe{0%,100%{transform:scale(1); opacity:.75} 50%{transform:scale(1.12); opacity:1}}
+
+  /* ---------- Buttons ---------- */
+  button{font:inherit; cursor:pointer; color:var(--text); border:1px solid var(--line);
+    background:var(--glass); backdrop-filter:blur(8px); border-radius:var(--radius-sm);
+    padding:10px 18px; transition:transform .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease);}
+  button:hover{border-color:rgba(138,180,201,.5); background:var(--glass-hi)}
+  button:active{transform:scale(.97)}
+  button.primary{background:linear-gradient(135deg, rgba(138,180,201,.9), rgba(120,150,200,.85));
+    color:#0f1420; border-color:transparent; font-weight:600;}
+  button.primary:hover{filter:brightness(1.06); box-shadow:0 0 26px -6px var(--accent)}
+  .pill{border-radius:999px; padding:9px 18px; font-size:13px}
+  .ghost{background:transparent; border-color:var(--line-soft)}
+
+  .wrap{max-width:1060px; margin:0 auto; padding:36px 28px 0}
+
+  /* ---------- Add bar ---------- */
+  .addbar{display:flex; gap:12px; margin:4px 0 10px; flex-wrap:wrap}
+  .addbar input{flex:1; min-width:220px; color:var(--text); font:inherit; font-size:15px;
+    background:var(--glass); backdrop-filter:blur(10px); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:15px 18px; transition:border-color .25s var(--ease);}
+  .addbar input::placeholder{color:var(--muted)}
+  .addbar input:focus{outline:none; border-color:rgba(138,180,201,.55); box-shadow:0 0 0 3px rgba(138,180,201,.12)}
+
+  /* ---------- Section labels ---------- */
+  .label{font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.12em; font-weight:600; margin:40px 2px 16px;}
+
+  /* ---------- Presets ---------- */
+  .presets{display:flex; gap:12px; flex-wrap:wrap}
+  .preset{display:flex; flex-direction:column; gap:3px; text-align:left;
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:14px 18px; min-width:124px; max-width:264px; backdrop-filter:blur(10px);}
+  .preset:hover{border-color:rgba(138,180,201,.45); transform:translateY(-2px)}
+  .preset .n{font-weight:600; font-size:13.5px}
+  .preset .c{color:var(--text2); font-size:11.5px; line-height:1.45}
+
+  /* ---------- Layer grid ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:22px}
+  .layer{position:relative; background:var(--glass); backdrop-filter:blur(20px) saturate(140%);
+    border:1px solid var(--line); border-radius:var(--radius); padding:24px;
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:border-color .35s var(--ease), box-shadow .35s var(--ease);}
+  .layer.playing{border-color:rgba(138,180,201,.4);
+    box-shadow:0 0 0 1px rgba(138,180,201,.35), 0 0 40px -6px rgba(138,180,201,.4), var(--shadow);
+    animation:cardbreathe 7s var(--ease-sym) infinite;}
+  .layer.gone{border-color:rgba(217,168,126,.35)}
+  @keyframes cardbreathe{
+    0%,100%{box-shadow:0 0 0 1px rgba(138,180,201,.28), 0 0 30px -8px rgba(138,180,201,.30), var(--shadow)}
+    50%{box-shadow:0 0 0 1px rgba(138,180,201,.42), 0 0 48px -4px rgba(138,180,201,.5), var(--shadow)}
+  }
+  .layer-head{display:flex; gap:16px; align-items:center}
+  .thumb{width:66px; height:66px; border-radius:15px; overflow:hidden; flex-shrink:0; background:#000;
+    border:1px solid var(--line); position:relative;}
+  .thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%; width:118px; height:66px; transform:translate(-50%,-50%); border:0;}
+  .meta{flex:1; min-width:0}
+  .title{font-weight:600; font-size:14.5px; line-height:1.3; margin:0 0 4px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .status{font-size:11.5px; color:var(--muted)}
+  .status .live{color:var(--accent-glow)}
+  .status .gone{color:var(--warm)}
+  .playbtn{flex-shrink:0; width:46px; height:46px; border-radius:50%; padding:0; font-size:16px;
+    display:flex; align-items:center; justify-content:center; background:var(--glass-hi);
+    border:1px solid var(--line);}
+  .layer.playing .playbtn{background:radial-gradient(circle at 35% 30%, rgba(169,208,224,.95), rgba(138,180,201,.9));
+    color:#0f1420; border-color:transparent; box-shadow:0 0 22px -4px var(--accent);}
+
+  .ctl{margin-top:20px}
+  .ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px}
+  .ctl .lab span{font-size:10.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--text2); font-weight:600}
+  .ctl .lab b{color:var(--text); font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums}
+
+  /* ---------- Sliders ---------- */
+  input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:100%; height:22px;
+    background:transparent; cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:999px;
+    background:linear-gradient(var(--accent),var(--accent)) 0/var(--val) 100% no-repeat, rgba(255,255,255,.13);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:17px; height:17px;
+    margin-top:-5.5px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 5px rgba(8,11,22,.5), inset 0 1px 0 rgba(255,255,255,.9);
+    transition:transform .18s var(--ease);}
+  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.18)}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(.96)}
+  input[type=range]::-moz-range-track{height:6px; border-radius:999px; background:rgba(255,255,255,.13)}
+  input[type=range]::-moz-range-progress{height:6px; border-radius:999px; background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:17px; height:17px; border:none; border-radius:50%; background:#fff;
+    box-shadow:0 1px 5px rgba(8,11,22,.5);}
+  input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--accent); outline-offset:2px}
+  input[type=range]:focus-visible::-moz-range-thumb{outline:3px solid var(--accent); outline-offset:2px}
+
+  /* ---------- Layer footer ---------- */
+  .layer-foot{display:flex; align-items:center; gap:14px; margin-top:20px; padding-top:18px; border-top:1px solid var(--line-soft)}
+  .toggle{display:inline-flex; align-items:center; gap:8px; font-size:11px; text-transform:uppercase;
+    letter-spacing:.09em; color:var(--text2); font-weight:600; cursor:pointer; user-select:none}
+  .toggle input{display:none}
+  .toggle .sw{width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,.14); position:relative; transition:background .25s var(--ease)}
+  .toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .25s var(--ease)}
+  .toggle input:checked + .sw{background:var(--accent)}
+  .toggle input:checked + .sw::after{transform:translateX(16px)}
+  .remove{font-size:12px; color:var(--text2); background:transparent; border:none; padding:6px 8px}
+  .remove:hover{color:var(--warm); background:rgba(217,168,126,.1)}
+  .tvbtn{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
+    color:var(--text2); background:transparent; border:none; padding:6px 8px}
+  .tvbtn:hover{color:var(--accent-glow); background:rgba(138,180,201,.1)}
+  .tvbtn.active{color:var(--accent-glow)}
+
+  /* ---------- Theatre mode ----------
+     NOTE: .layer sets backdrop-filter, which would make it the containing block
+     for any position:fixed descendant. It must be switched off while a layer is
+     the visualiser, or the "fullscreen" video sizes itself to the card instead. */
+  .layer.is-theatre{backdrop-filter:none; filter:none; border-color:rgba(138,180,201,.55)}
+  .thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none; border-radius:0; z-index:40; background:#000}
+  /* Fill: crop to cover the viewport. Costs decode area — on a portrait phone the
+     iframe ends up ~4x the screen width, so YouTube serves a much larger stream. */
+  .thumb.theatre .yt, .thumb.theatre > iframe{width:max(100vw,177.78vh); height:max(100vh,56.25vw)}
+  /* Fit: letterbox. The iframe never exceeds the screen, so YouTube serves a
+     stream sized to the device. Much lighter, and the default in portrait. */
+  .thumb.theatre.fit .yt, .thumb.theatre.fit > iframe{width:min(100vw,177.78vh); height:min(100vh,56.25vw)}
+  .shade{position:fixed; inset:0; z-index:41; background:#000; opacity:0; display:none; pointer-events:none;
+    transition:opacity .4s var(--ease)}
+  .shade.on{display:block}
+  .catch{position:fixed; inset:0; z-index:42; display:none; cursor:pointer}
+  .catch.on{display:block}
+  .tbar{position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; gap:18px; align-items:center; flex-wrap:wrap;
+    padding:22px 28px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(9,12,20,.88), rgba(9,12,20,0));
+    opacity:1; transition:opacity .5s var(--ease)}
+  .tbar.on{display:flex}
+  .tbar.idle{opacity:0; pointer-events:none}
+  .tbar .tname{font-family:"Fraunces",serif; font-size:16px; max-width:220px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tbar .trow{display:flex; align-items:center; gap:10px}
+  .tbar .trow span{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:600}
+  .tbar .trow input[type=range]{width:104px}
+  body.theatre-on{overflow:hidden}
+
+  /* ---------- Theatre performance ----------
+     Everything below is invisible behind the opaque video, but the compositor
+     still pays for it every frame. Switching it off is free visually. */
+  body.theatre-on .aurora,
+  body.theatre-on .grain,
+  body.theatre-on header,
+  body.theatre-on .dock{display:none}
+  body.theatre-on .layer{backdrop-filter:none; box-shadow:none; animation:none}
+  body.theatre-on .preset,
+  body.theatre-on .mix,
+  body.theatre-on .addbar input,
+  body.theatre-on button{backdrop-filter:none}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center; color:var(--text2); padding:66px 30px;
+    border:1px dashed var(--line); border-radius:var(--radius); background:rgba(255,255,255,.02)}
+  .empty h3{font-family:"Fraunces",serif; font-weight:400; font-size:21px; color:var(--text); margin:0 0 8px}
+  .empty p{margin:0; font-size:14px}
+
+  /* ---------- Saved mixes ---------- */
+  .mixes{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .mix{display:flex; align-items:center; gap:2px; background:var(--glass); border:1px solid var(--line);
+    border-radius:999px; padding:0 6px 0 15px; backdrop-filter:blur(10px)}
+  .mix .name{padding:9px 4px; font-size:13px; font-weight:500; cursor:pointer}
+  .mix .name:hover{color:var(--accent-glow)}
+  .mix .x{background:transparent; border:none; color:var(--muted); padding:6px; font-size:13px; border-radius:50%}
+  .mix .x:hover{color:var(--warm)}
+
+  /* ---------- Dock ---------- */
+  .dock{position:fixed; left:0; right:0; bottom:0; z-index:30; backdrop-filter:blur(18px);
+    background:rgba(18,23,38,.72); border-top:1px solid var(--line);
+    padding:16px 28px calc(16px + env(safe-area-inset-bottom)); display:flex; gap:18px; align-items:center; flex-wrap:wrap;}
+  .dock .mrow{display:flex; align-items:center; gap:10px}
+  .dock .mrow span{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:600}
+  .dock .mvol{width:120px}
+  .timer{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--text2)}
+  .timer select{color:var(--text); font:inherit; font-size:13px; background:var(--raised);
+    border:1px solid var(--line); border-radius:10px; padding:8px 10px}
+  .timer .left{font-variant-numeric:tabular-nums; color:var(--accent-glow); min-width:38px}
+
+  .hint{font-size:12px; color:var(--muted); margin:26px 2px 0; line-height:1.6; max-width:680px}
+
+  /* ---------- Toast ---------- */
+  .toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
+    background:var(--raised); border:1px solid rgba(138,180,201,.5); color:var(--text);
+    padding:11px 18px; border-radius:13px; font-size:13.5px; box-shadow:var(--shadow);
+    pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:50}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:520px){
+    .grid{grid-template-columns:1fr}
+    .dock{gap:12px} .dock .mvol{width:92px}
+    .brand .tag{display:none}
+    .tbar{gap:10px; padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+    .tbar .tname{max-width:120px; font-size:14px}
+    .tbar .trow input[type=range]{width:66px}
+    .tbar .pill{padding:8px 13px; font-size:12px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .aurora::before,.brand .orb,.layer.playing{animation:none !important}
+    *,*::before,*::after{transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+<div class="grain"></div>
+
+<header>
+  <div class="brand">
+    <span class="orb"></span>
+    <h1>Ambience</h1>
+    <span class="tag">a calm soundscape mixer</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="pill ghost" id="btnExport">Export</button>
+  <button class="pill ghost" id="btnImport">Import</button>
+  <input type="file" id="fileImport" accept="application/json" hidden>
+</header>
+
+<div class="wrap">
+  <div class="addbar">
+    <input id="urlInput" type="text" placeholder="Paste a YouTube link or video ID…" autocomplete="off">
+    <button class="primary" id="btnAdd">Add layer</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty">
+    <h3>A quiet canvas</h3>
+    <p>Tap a starter preset below, or paste any YouTube link to begin your soundscape.</p>
+  </div>
+
+  <div class="label">Starter presets</div>
+  <div class="presets" id="presets"></div>
+
+  <div class="label">Saved mixes</div>
+  <div class="mixes" id="mixes">
+    <button class="pill" id="btnSave">Save current mix</button>
+    <span class="hint" id="noMixes" style="margin:0">Nothing saved yet.</span>
+  </div>
+
+  <p class="hint" id="hint">
+    Add this to your phone's home screen for an app-like feel. Audio begins after your first tap.
+    Speed steps in 0.25× increments — that's the finest YouTube's player allows. Mixing several videos
+    works best with the screen on; Android may pause background audio when the screen sleeps.
+    Tap <b>Visualise</b> on any layer to fill the screen with it. If playback stutters, switch the
+    visualiser to <b>Fit</b> — it letterboxes instead of cropping, which is far lighter on the phone.
+    A preset replaces what's playing; save your own blend first if you want to keep it.
+  </p>
+</div>
+
+<div class="shade" id="shade"></div>
+<div class="catch" id="catch"></div>
+<div class="tbar" id="tbar">
+  <button class="playbtn" id="tplay" style="width:42px; height:42px">▶</button>
+  <span class="tname" id="tname"></span>
+  <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60"></div>
+  <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35"></div>
+  <div class="spacer"></div>
+  <button class="pill ghost" id="tfit">Fit</button>
+  <button class="pill ghost" id="texit">Exit ✕</button>
+</div>
+
+<div class="dock">
+  <button class="primary" id="btnPlayAll">▶ Play all</button>
+  <button id="btnStopAll">Pause all</button>
+  <button id="btnClearAll">Clear all</button>
+  <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100"></div>
+  <div class="spacer"></div>
+  <div class="timer">
+    <span>Sleep</span>
+    <select id="sleepSel">
+      <option value="0">Off</option>
+      <option value="15">15 min</option>
+      <option value="30">30 min</option>
+      <option value="45">45 min</option>
+      <option value="60">1 hour</option>
+      <option value="90">1.5 hours</option>
+      <option value="120">2 hours</option>
+    </select>
+    <span class="left" id="timerLeft"></span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+(function(){
+  "use strict";
+  var LS_KEY="ambience.mixes.v1";
+  var layers=[], seq=0, apiReady=false, pendingCreates=[], masterVolume=100;
+  var sleepTimer=null, sleepEndsAt=0, sleepTick=null;
+  var DEFAULT_RATES=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
+  var theatreLayer=null, dimLevel=0.35, idleT=null, wakeLock=null;
+  var fitMode=(window.innerHeight>window.innerWidth);
+
+  window.onYouTubeIframeAPIReady=function(){ apiReady=true; pendingCreates.forEach(function(f){f();}); pendingCreates=[]; };
+
+  function extractId(input){
+    if(!input) return null; input=input.trim();
+    if(/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+    var m;
+    m=input.match(/[?&]v=([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=input.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=input.match(/\/embed\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=input.match(/\/shorts\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=input.match(/\/live\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    m=input.match(/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
+    return null;
+  }
+  function fillSlider(el){ var p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty("--val",p+"%"); }
+  function snapRate(L,v){ var rates=L.rates||DEFAULT_RATES; var best=rates[0], d=1e9;
+    rates.forEach(function(r){ var dd=Math.abs(r-v); if(dd<d){d=dd; best=r;} }); return best; }
+
+  function addLayer(cfg){
+    cfg=cfg||{};
+    var L={uid:"L"+(++seq), videoId:cfg.videoId,
+      title:cfg.title||("Loading… ("+cfg.videoId+")"),
+      volume:cfg.volume!=null?cfg.volume:60, speed:cfg.speed!=null?cfg.speed:1,
+      loop:cfg.loop!=null?cfg.loop:true, playing:false, player:null, ready:false,
+      unavailable:null, rates:DEFAULT_RATES};
+    layers.push(L); renderLayers(); createPlayer(L,!!cfg.autoplay); fetchTitle(L); refreshEmpty();
+    return L;
+  }
+  function createPlayer(L,autoplay){
+    var make=function(){
+      L.player=new YT.Player("yt_"+L.uid,{ host:"https://www.youtube.com", videoId:L.videoId,
+        playerVars:{autoplay:autoplay?1:0,controls:0,disablekb:1,fs:0,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,origin:window.location.origin},
+        events:{
+          onReady:function(e){
+            L.ready=true;
+            try{ var r=e.target.getAvailablePlaybackRates(); if(r&&r.length) L.rates=r; }catch(_){}
+            try{ e.target.setVolume(effectiveVol(L)); }catch(_){}
+            try{ e.target.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
+            if(autoplay){ L.playing=true; try{ e.target.playVideo(); }catch(_){} }
+            syncTitleFromPlayer(L); renderLayers();
+          },
+          onStateChange:function(e){
+            if(e.data===YT.PlayerState.ENDED && L.loop){ try{ L.player.seekTo(0); L.player.playVideo(); }catch(_){} }
+            if(e.data===YT.PlayerState.PLAYING){ L.playing=true; }
+            if(e.data===YT.PlayerState.PAUSED){ L.playing=false; }
+            try{ if(Math.abs(L.player.getPlaybackRate()-L.speed)>.001) L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
+            renderPlaying(L);
+          },
+          /* A mixer built on other people's videos meets removed, private and
+             embedding-disabled videos regularly. Say which layer went and why,
+             and keep its title so the layer is still identifiable. */
+          onError:function(e){
+            L.unavailable=LAYER_ERRORS[e.data]||"This layer won't play.";
+            L.playing=false; renderLayers();
+          }
+        }});
+    };
+    if(apiReady) make(); else pendingCreates.push(make);
+  }
+  var LAYER_ERRORS={
+    2:"That link doesn't contain a valid video ID.",
+    5:"This video won't play in the browser player.",
+    100:"That video has been removed, or is private now.",
+    101:"The owner has turned off playback on other sites.",
+    150:"The owner has turned off playback on other sites."
+  };
+  function fetchTitle(L){
+    fetch("https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v="+L.videoId)
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(d){ if(d&&d.title){ L.title=d.title; renderLayers(); } }).catch(function(){});
+  }
+  function syncTitleFromPlayer(L){ try{ var d=L.player.getVideoData(); if(d&&d.title) L.title=d.title; }catch(_){} }
+
+  function effectiveVol(L){ return Math.round(L.volume*masterVolume/100); }
+  function applyVolume(L){ if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} } }
+  function applySpeed(L){ if(L.ready){ try{ L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){} } }
+  function playLayer(L){ if(L.ready){ try{ L.player.playVideo(); L.playing=true; applyVolume(L); applySpeed(L);}catch(_){} } renderPlaying(L); }
+  function stopLayer(L){ if(L.ready){ try{ L.player.pauseVideo(); L.playing=false; }catch(_){} } renderPlaying(L); }
+  function removeLayer(L){
+    if(theatreLayer===L) exitTheatre();
+    try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){}
+    layers=layers.filter(function(x){return x!==L;}); renderLayers(); refreshEmpty(); }
+  function playAll(){ layers.forEach(playLayer); }
+  function stopAll(){ layers.forEach(stopLayer); }
+  function clearAll(){ if(!layers.length){ toast("Nothing to clear."); return; } layers.slice().forEach(removeLayer); toast("Cleared all sounds."); }
+
+  /* ---------- Theatre mode ----------
+     The iframe is never moved in the DOM — doing so would reload it and restart
+     the video. We only swap CSS classes on the existing .thumb wrapper. */
+  var shade=document.getElementById("shade"), catcher=document.getElementById("catch"),
+      tbar=document.getElementById("tbar"), tname=document.getElementById("tname"),
+      tvol=document.getElementById("tvol"), tdim=document.getElementById("tdim"),
+      tplay=document.getElementById("tplay"), tfit=document.getElementById("tfit");
+
+  function theatreThumb(){
+    if(!theatreLayer) return null;
+    var card=document.getElementById("card_"+theatreLayer.uid);
+    return card?card.querySelector(".thumb"):null;
+  }
+  function applyFit(){
+    var t=theatreThumb(); if(t) t.classList.toggle("fit",fitMode);
+    tfit.textContent=fitMode?"Fill":"Fit";
+  }
+  function theatreDomOff(L){
+    var card=document.getElementById("card_"+L.uid); if(!card) return;
+    card.classList.remove("is-theatre");
+    var t=card.querySelector(".thumb"); if(t){ t.classList.remove("theatre"); t.classList.remove("fit"); }
+  }
+  function enterTheatre(L){
+    if(theatreLayer===L){ exitTheatre(); return; }
+    if(theatreLayer) theatreDomOff(theatreLayer);
+    theatreLayer=L;
+    var card=document.getElementById("card_"+L.uid);
+    if(card){ card.classList.add("is-theatre");
+      var t=card.querySelector(".thumb"); if(t) t.classList.add("theatre"); }
+    document.body.classList.add("theatre-on");
+    shade.classList.add("on"); shade.style.opacity=dimLevel;
+    catcher.classList.add("on"); tbar.classList.add("on");
+    tname.textContent=L.title;
+    tvol.value=L.volume; fillSlider(tvol);
+    tdim.value=Math.round(dimLevel*100); fillSlider(tdim);
+    applyFit(); requestWake(); wakeControls();
+    if(!L.playing) playLayer(L);
+    renderLayers();
+  }
+  function exitTheatre(){
+    if(theatreLayer) theatreDomOff(theatreLayer);
+    theatreLayer=null;
+    document.body.classList.remove("theatre-on");
+    shade.classList.remove("on"); shade.style.opacity=0;
+    catcher.classList.remove("on");
+    tbar.classList.remove("on"); tbar.classList.remove("idle");
+    clearTimeout(idleT); releaseWake(); renderLayers();
+  }
+  function wakeControls(){
+    tbar.classList.remove("idle"); clearTimeout(idleT);
+    idleT=setTimeout(function(){ if(theatreLayer) tbar.classList.add("idle"); },3000);
+  }
+  function requestWake(){
+    try{ if("wakeLock" in navigator){
+      navigator.wakeLock.request("screen").then(function(w){ wakeLock=w; }).catch(function(){});
+    } }catch(_){}
+  }
+  function releaseWake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(_){} }
+
+  catcher.addEventListener("click",function(){ wakeControls(); });
+  catcher.addEventListener("mousemove",function(){ wakeControls(); });
+  tbar.addEventListener("mousemove",function(){ wakeControls(); });
+  tbar.addEventListener("touchstart",function(){ wakeControls(); },{passive:true});
+  document.getElementById("texit").addEventListener("click",exitTheatre);
+  tfit.addEventListener("click",function(){ fitMode=!fitMode; applyFit(); wakeControls();
+    toast(fitMode?"Letterboxed — lighter on the device.":"Cropped to fill — heavier on the device."); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&theatreLayer) exitTheatre(); });
+  document.addEventListener("visibilitychange",function(){
+    if(document.visibilityState==="visible"&&theatreLayer) requestWake(); });
+  tdim.addEventListener("input",function(){ dimLevel=+tdim.value/100; shade.style.opacity=dimLevel;
+    fillSlider(tdim); wakeControls(); });
+  tvol.addEventListener("input",function(){ if(!theatreLayer) return;
+    var L=theatreLayer; L.volume=+tvol.value; applyVolume(L); fillSlider(tvol);
+    var v=document.getElementById("vol_"+L.uid); if(v){ v.value=L.volume; fillSlider(v); }
+    var lab=document.getElementById("vlab_"+L.uid); if(lab) lab.textContent=L.volume+"%";
+    renderPlaying(L); wakeControls(); });
+  tplay.addEventListener("click",function(){ if(!theatreLayer) return;
+    if(theatreLayer.playing) stopLayer(theatreLayer); else playLayer(theatreLayer); wakeControls(); });
+
+  var grid=document.getElementById("grid");
+  function renderLayers(){
+    layers.forEach(function(L){
+      var el=document.getElementById("card_"+L.uid);
+      if(!el){
+        el=document.createElement("div"); el.className="layer"; el.id="card_"+L.uid;
+        el.innerHTML=
+          '<div class="layer-head">'+
+            '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>'+
+            '<div class="meta"><p class="title" id="title_'+L.uid+'"></p><div class="status" id="status_'+L.uid+'"></div></div>'+
+            '<button class="playbtn" id="pp_'+L.uid+'">▶</button>'+
+          '</div>'+
+          '<div class="ctl"><div class="lab"><span>Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
+            '<input type="range" min="0" max="100" id="vol_'+L.uid+'"></div>'+
+          '<div class="ctl"><div class="lab"><span>Speed</span><b id="slab_'+L.uid+'"></b></div>'+
+            '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'"></div>'+
+          '<div class="layer-foot">'+
+            '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
+            '<button class="tvbtn" id="tv_'+L.uid+'">Visualise</button>'+
+            '<div class="spacer"></div>'+
+            '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
+          '</div>';
+        grid.appendChild(el);
+        var vol=el.querySelector("#vol_"+L.uid);
+        vol.addEventListener("input",function(){ L.volume=+vol.value; applyVolume(L);
+          document.getElementById("vlab_"+L.uid).textContent=L.volume+"%"; fillSlider(vol);
+          if(theatreLayer===L){ tvol.value=L.volume; fillSlider(tvol); } });
+        var spd=el.querySelector("#spd_"+L.uid);
+        spd.addEventListener("input",function(){ L.speed=snapRate(L,+spd.value); applySpeed(L);
+          document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); });
+        el.querySelector("#loop_"+L.uid).addEventListener("change",function(e){ L.loop=e.target.checked; });
+        el.querySelector("#pp_"+L.uid).addEventListener("click",function(){ if(L.playing) stopLayer(L); else playLayer(L); });
+        el.querySelector("#tv_"+L.uid).addEventListener("click",function(){ enterTheatre(L); });
+        el.querySelector("#rm_"+L.uid).addEventListener("click",function(){ removeLayer(L); });
+      }
+      document.getElementById("title_"+L.uid).textContent=L.title;
+      var vol=document.getElementById("vol_"+L.uid);
+      if(vol && document.activeElement!==vol){ vol.value=L.volume; fillSlider(vol); }
+      document.getElementById("vlab_"+L.uid).textContent=L.volume+"%";
+      var spd=document.getElementById("spd_"+L.uid);
+      if(spd && document.activeElement!==spd){ spd.value=L.speed; fillSlider(spd); }
+      document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×";
+      document.getElementById("loop_"+L.uid).checked=L.loop;
+      var tv=document.getElementById("tv_"+L.uid);
+      if(tv){ var on=(theatreLayer===L); tv.classList.toggle("active",on); tv.textContent=on?"Visualising":"Visualise"; }
+      if(theatreLayer===L) tname.textContent=L.title;
+      renderPlaying(L);
+    });
+    Array.prototype.slice.call(grid.children).forEach(function(el){
+      var uid=el.id.replace("card_",""); if(!layers.some(function(L){return L.uid===uid;})) el.remove();
+    });
+  }
+  function renderPlaying(L){
+    var el=document.getElementById("card_"+L.uid); if(!el) return;
+    el.classList.toggle("playing",L.playing && !L.unavailable);
+    el.classList.toggle("gone",!!L.unavailable);
+    var pp=document.getElementById("pp_"+L.uid); if(pp) pp.textContent=L.playing?"⏸":"▶";
+    if(theatreLayer===L) tplay.textContent=L.playing?"⏸":"▶";
+    var s=document.getElementById("status_"+L.uid); if(!s) return;
+    if(L.unavailable){ s.innerHTML='<span class="gone">'+L.unavailable+'</span>'; return; }
+    if(!L.ready){ s.innerHTML="preparing…"; return; }
+    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+L.speed.toFixed(2)+"× · "+L.volume+"%";
+  }
+  function refreshEmpty(){ document.getElementById("empty").style.display=layers.length?"none":"block"; }
+
+  /* ---------- Starter presets ----------
+     Ours, not the user's. Their own blends stay in Saved mixes; editing a preset
+     never writes back to it.
+
+     Every videoId was checked against YouTube's oEmbed endpoint on 30 July 2026
+     and returned a live, public video. Titles are the real titles as YouTube
+     reported them then, so they match what the player reports back and the card
+     never flashes a placeholder.
+
+     Each mix follows one shape, taken from the Indoor Pool blend:
+       bed    65-76  the thing you actually notice
+       body   36-50  fills the middle, rarely identified by ear
+       colour 20-32  intermittent detail - plates, birds, a purr
+       ghost  12-18  felt rather than heard, often slowed
+
+     Speed is a mixing tool here. YouTube preserves pitch when it changes rate,
+     so 0.75x or 0.5x lengthens and deepens a layer without sounding slowed:
+     thunder rolls further away, ice becomes a hull, a clock stops nagging. */
+  var PRESETS=[
+    {name:"Rainy night", cue:"rain · thunder · wind · clock",
+     note:"Rain on the glass, thunder a few streets away, and a clock you stop hearing after a minute.",
+     layers:[
+      {id:"x7SQaDTSrVg",v:76,s:1,   t:"Rain On Window with Thunder Sounds - Rain in Forest at Night - 10 Hours"},
+      {id:"TpReQ1XXQzs",v:42,s:0.75,t:"SLEEP INSTANTLY with Rain and Distant Thunder - BLACK SCREEN - Rain Sounds | Thunderstorm Sounds"},
+      {id:"4KzFe50RQkQ",v:26,s:1,   t:"The Wind in the Trees ( 10 Hours of Natural White Noise )"},
+      {id:"lal176NxDIc",v:14,s:1,   t:"10 Hours Grandfather Clock Ticking Sounds For Deep Sleep"}]},
+
+    {name:"Fireside", cue:"fire · blizzard · purring · clock",
+     note:"A fire indoors, a blizzard outdoors, and a cat that has decided not to move.",
+     layers:[
+      {id:"5uY3OMRulVo",v:72,s:1,   t:"Warm Cozy Fireplace 🔥 10 Hours • No Ads • No Music"},
+      {id:"CQSfI_tXZLY",v:44,s:1,   t:"Snowstorm, Blizzard & Howling Winds | 10 Hours · Wooden Cabin 4K"},
+      {id:"cqlPHCc7xYo",v:24,s:1,   t:"Cat Purring Sound for 10 Hours | Purring Cat ASMR"},
+      {id:"lal176NxDIc",v:12,s:0.75,t:"10 Hours Grandfather Clock Ticking Sounds For Deep Sleep"}]},
+
+    {name:"Corner café", cue:"chatter · rain · piano",
+     note:"Two rooms of chatter stacked into one, rain outside, a piano in the far corner.",
+     layers:[
+      {id:"h2zkV-l_TbY",v:66,s:1,t:"RESTAURANT AMBIENCE • 10H Busy Coffee Shop Background Noise"},
+      {id:"MO1wJTMuHXg",v:38,s:1,t:"Sleep Sounds Rain No Thunder 🌧️ Rainstorm White Noise 10 Hours"},
+      {id:"vJndUdzCHzM",v:30,s:1,t:"Relaxing Jazz Instrumental in Cozy Coffee Shop"},
+      {id:"uiMXGIG_DQo",v:20,s:1,t:"Coffee Shop Ambience | Cafe Background Noise for Study, Focus"}]},
+
+    {name:"Night train", cue:"carriage · rails · rain · thunder",
+     note:"Two carriages layered for weight, rain on the window, thunder somewhere behind the hills.",
+     layers:[
+      {id:"0Ujw4Zq1D9o",v:74,s:1,   t:"Train Rain Sounds for Sleep 🚂 Cozy Sleeper Train Ambience 🌙 10 Hours"},
+      {id:"KtPj5rLNbeY",v:46,s:1,   t:"10-Hour of Night Train Ride, Gentle Tracks For Deep Sleep"},
+      {id:"MO1wJTMuHXg",v:34,s:1,   t:"Sleep Sounds Rain No Thunder 🌧️ Rainstorm White Noise 10 Hours"},
+      {id:"TpReQ1XXQzs",v:14,s:0.75,t:"SLEEP INSTANTLY with Rain and Distant Thunder - BLACK SCREEN"}]},
+
+    {name:"Dawn chorus", cue:"birdsong · river · wind",
+     note:"Birdsong over a river, with wind moving through the tops of the trees.",
+     layers:[
+      {id:"2cLQjwf4Y9g",v:64,s:1,t:"10 Hours of Peaceful Forest Sounds with Birds Singing [4K]"},
+      {id:"1oMdsriJfOs",v:48,s:1,t:"4k Forest River White Noise | River Sounds No Birds"},
+      {id:"4KzFe50RQkQ",v:28,s:1,t:"The Wind in the Trees ( 10 Hours of Natural White Noise )"},
+      {id:"8UKisCUnlIo",v:18,s:1,t:"No AI - Pure Nature: 4K - Morning Forest Ambience"}]},
+
+    {name:"Beneath the surface", cue:"deep water · whales · bubbles",
+     note:"Deep water, distant whales, and a slowed layer of ice for the floor of it.",
+     layers:[
+      {id:"_dJDFGvkc1Y",v:70,s:1,   t:"UNDERWATER Ambience 10 Hours | DEEP SEA ASMR"},
+      {id:"R5rGICvc9ro",v:36,s:1,   t:"Whale Sounds Underwater Nature Video | 4K - 10 Hours"},
+      {id:"V9vclVE4hjE",v:26,s:1,   t:"Aquarium Ambience - 10 Hours Sleep Sound - Black Screen"},
+      {id:"9FEt4cKptDA",v:18,s:0.75,t:"10 hours of DEEP OCEAN Under ICE an UNDERWATER Ambience/ASMR"}]},
+
+    {name:"The tavern", cue:"fire · chatter · plates · rain",
+     note:"A full room — fire, plates, rain at the door, and a band you can only half hear.",
+     layers:[
+      {id:"_P2O9ZXpKD8",v:70,s:1,t:"Medieval Fantasy Tavern Ambience No Music - Fireplace & Chatter"},
+      {id:"5uY3OMRulVo",v:42,s:1,t:"Warm Cozy Fireplace 🔥 10 Hours • No Ads • No Music"},
+      {id:"gfikThrjdTg",v:30,s:1,t:"Medieval Tavern Ambience | Plates and Glasses Clanking, Light Voices"},
+      {id:"x7SQaDTSrVg",v:26,s:1,t:"Rain On Window with Thunder Sounds - Rain in Forest at Night"},
+      {id:"4pGln_xH7HI",v:16,s:1,t:"The Merry Tavern 🍺 3 Hours of Upbeat Medieval Tavern Music"}]},
+
+    {name:"Idling starship", cue:"engines · bridge · hull",
+     note:"An engine room at rest, a bridge on night shift, and the sea at half speed under the hull.",
+     layers:[
+      {id:"ZPoqNeR3_UA",v:68,s:1,  t:"Star Trek TNG Ambient Engine Noise (Idling for 24 hrs)"},
+      {id:"8PTdaSO7L1M",v:36,s:1,  t:"Star Trek: Enterprise NX-01 Ambient Ship Noise For 12 Hours"},
+      {id:"XajaCX88NnU",v:22,s:1,  t:"TNG Bridge NIGHT SHIFT Ambience *8 HOURS*"},
+      {id:"9FEt4cKptDA",v:16,s:0.5,t:"10 hours of DEEP OCEAN Under ICE an UNDERWATER Ambience/ASMR"}]}
+  ];
+
+  function loadPreset(p){
+    /* A preset is a starting point, so it replaces rather than stacks — four
+       layers on top of four already playing is mud, and more players than a
+       phone can decode. Ask first, because the current blend may be unsaved. */
+    if(layers.length){
+      var n=layers.length;
+      if(!confirm('Replace the current '+n+' layer'+(n===1?'':'s')+' with "'+p.name+'"?')) return;
+      layers.slice().forEach(removeLayer);
+    }
+    p.layers.forEach(function(it){
+      addLayer({videoId:it.id,title:it.t,volume:it.v,speed:it.s,loop:true,autoplay:true});
+    });
+    toast('Loaded "'+p.name+'" — '+p.layers.length+' layers.');
+  }
+  function renderPresets(){
+    var box=document.getElementById("presets");
+    PRESETS.forEach(function(p){
+      var b=document.createElement("button"); b.className="preset"; b.title=p.note;
+      var n=document.createElement("span"); n.className="n"; n.textContent=p.name;
+      var c=document.createElement("span"); c.className="c"; c.textContent=p.cue;
+      b.appendChild(n); b.appendChild(c);
+      b.addEventListener("click",function(){ loadPreset(p); });
+      box.appendChild(b);
+    });
+  }
+
+  function loadMixes(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(_){ return {}; } }
+  function storeMixes(m){ try{ localStorage.setItem(LS_KEY,JSON.stringify(m)); }catch(_){ toast("Couldn't save (storage blocked)."); } }
+  function currentMixData(){ return layers.map(function(L){ return {videoId:L.videoId,title:L.title,volume:L.volume,speed:L.speed,loop:L.loop,visualiser:theatreLayer===L}; }); }
+  function saveCurrent(){
+    if(!layers.length){ toast("Add some layers first."); return; }
+    var name=prompt("Name this mix:","My mix"); if(!name) return;
+    var m=loadMixes(); m[name]=currentMixData(); storeMixes(m); renderMixes(); toast('Saved "'+name+'".');
+  }
+  function loadMix(name,data,replace){
+    if(replace) layers.slice().forEach(removeLayer);
+    var vis=null;
+    data.forEach(function(d){
+      var L=addLayer({videoId:d.videoId,title:d.title,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:true});
+      if(d.visualiser) vis=L;
+    });
+    if(vis) enterTheatre(vis);
+    toast('Loaded "'+name+'".');
+  }
+  function renderMixes(){
+    var box=document.getElementById("mixes");
+    Array.prototype.slice.call(box.querySelectorAll(".mix,#noMixes")).forEach(function(n){ n.remove(); });
+    var m=loadMixes(), names=Object.keys(m);
+    if(!names.length){ var s=document.createElement("span"); s.className="hint"; s.id="noMixes"; s.style.margin="0"; s.textContent="Nothing saved yet."; box.appendChild(s); return; }
+    names.forEach(function(name){
+      var el=document.createElement("div"); el.className="mix";
+      el.innerHTML='<span class="name">'+name+'</span><button class="x">✕</button>';
+      el.querySelector(".name").addEventListener("click",function(){ loadMix(name,m[name],true); });
+      el.querySelector(".x").addEventListener("click",function(){ var mm=loadMixes(); delete mm[name]; storeMixes(mm); renderMixes(); });
+      box.appendChild(el);
+    });
+  }
+
+  function exportMixes(){
+    var payload={app:"ambience",version:2,exported:new Date().toISOString(),dim:dimLevel,fit:fitMode,current:currentMixData(),saved:loadMixes()};
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="ambience-mixes.json"; a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },2000); toast("Exported your mixes.");
+  }
+  function importMixes(file){
+    var r=new FileReader();
+    r.onload=function(){ try{ var d=JSON.parse(r.result);
+      if(typeof d.dim==="number"){ dimLevel=d.dim; tdim.value=Math.round(dimLevel*100); fillSlider(tdim); }
+      if(typeof d.fit==="boolean"){ fitMode=d.fit; applyFit(); }
+      if(d.saved){ var m=loadMixes(); Object.keys(d.saved).forEach(function(k){ m[k]=d.saved[k]; }); storeMixes(m); renderMixes(); }
+      if(d.current&&d.current.length){ loadMix("imported",d.current,true); } toast("Imported.");
+    }catch(_){ toast("That file couldn't be read."); } };
+    r.readAsText(file);
+  }
+
+  function setSleep(mins){
+    clearTimeout(sleepTimer); clearInterval(sleepTick); document.getElementById("timerLeft").textContent="";
+    if(!mins) return;
+    sleepEndsAt=Date.now()+mins*60000; var FADE=30000;
+    sleepTick=setInterval(function(){
+      var left=sleepEndsAt-Date.now();
+      if(left<=0){ clearInterval(sleepTick); document.getElementById("timerLeft").textContent=""; return; }
+      var mm=Math.floor(left/60000), ss=Math.floor((left%60000)/1000);
+      document.getElementById("timerLeft").textContent=mm+":"+(ss<10?"0":"")+ss;
+      if(left<=FADE){ var f=left/FADE; layers.forEach(function(L){ if(L.ready){ try{ L.player.setVolume(Math.round(effectiveVol(L)*f)); }catch(_){} } }); }
+    },500);
+    sleepTimer=setTimeout(function(){ stopAll(); layers.forEach(applyVolume);
+      if(theatreLayer) exitTheatre();
+      document.getElementById("sleepSel").value="0"; toast("Sleep timer ended — faded out gently."); },mins*60000);
+  }
+
+  var toastEl=document.getElementById("toast"), toastT;
+  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show");
+    clearTimeout(toastT); toastT=setTimeout(function(){ toastEl.classList.remove("show"); },2600); }
+
+  document.getElementById("btnAdd").addEventListener("click",function(){
+    var inp=document.getElementById("urlInput"); var id=extractId(inp.value);
+    if(!id){ toast("Couldn't find a video ID in that."); return; }
+    addLayer({videoId:id,autoplay:true}); inp.value="";
+  });
+  document.getElementById("urlInput").addEventListener("keydown",function(e){ if(e.key==="Enter") document.getElementById("btnAdd").click(); });
+  document.getElementById("btnPlayAll").addEventListener("click",playAll);
+  document.getElementById("btnStopAll").addEventListener("click",stopAll);
+  document.getElementById("btnClearAll").addEventListener("click",clearAll);
+  var mv=document.getElementById("masterVol"); fillSlider(mv);
+  mv.addEventListener("input",function(e){ masterVolume=+e.target.value; fillSlider(mv); layers.forEach(applyVolume); });
+  document.getElementById("btnSave").addEventListener("click",saveCurrent);
+  document.getElementById("btnExport").addEventListener("click",exportMixes);
+  document.getElementById("btnImport").addEventListener("click",function(){ document.getElementById("fileImport").click(); });
+  document.getElementById("fileImport").addEventListener("change",function(e){ if(e.target.files[0]) importMixes(e.target.files[0]); e.target.value=""; });
+  document.getElementById("sleepSel").addEventListener("change",function(e){ setSleep(+e.target.value); });
+
+  fillSlider(tvol); fillSlider(tdim); applyFit();
+  renderPresets(); renderMixes(); refreshEmpty();
+})();
+</script>
+</body>
+</html>
