@@ -125,6 +125,17 @@
 
   /* ---------- Section labels ---------- */
   .label{font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.12em; font-weight:600; margin:40px 2px 16px;}
+  .label-note{text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted)}
+
+  /* ---------- Built-in sound picker ---------- */
+  .synths{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px}
+  .synth-chip{display:inline-flex; align-items:center; gap:9px; text-align:left;
+    background:var(--glass); border:1px solid var(--line); border-radius:999px;
+    padding:10px 16px 10px 12px}
+  .synth-chip:hover{border-color:rgba(138,180,201,.45); transform:translateY(-1px)}
+  .synth-chip .ico{color:var(--accent); display:flex; flex-shrink:0}
+  .synth-chip .n{font-weight:600; font-size:13px}
+  .synth-chip .c{color:var(--muted); font-size:11.5px; margin-left:2px}
 
   /* ---------- Presets ---------- */
   .presets{display:flex; gap:12px; flex-wrap:wrap}
@@ -155,6 +166,15 @@
   .thumb{width:66px; height:66px; border-radius:15px; overflow:hidden; flex-shrink:0; background:#000;
     border:1px solid var(--line); position:relative;}
   .thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%; width:118px; height:66px; transform:translate(-50%,-50%); border:0;}
+  /* Synth layers have no video, so the tile carries a waveform mark instead
+     of a black box. */
+  .thumb.synth{display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(150deg, rgba(59,78,134,.5), rgba(42,110,106,.42));
+    color:var(--accent-glow)}
+  .tag-synth{font-size:10px; text-transform:uppercase; letter-spacing:.11em;
+    font-weight:600; color:var(--accent); white-space:nowrap;
+    border:1px solid rgba(138,180,201,.3); border-radius:999px; padding:5px 10px;
+    background:rgba(138,180,201,.08)}
   .meta{flex:1; min-width:0}
   .title{font-weight:600; font-size:14.5px; line-height:1.3; margin:0 0 4px;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
@@ -381,6 +401,10 @@
 </header>
 
 <div class="wrap">
+  <div class="label" style="margin-top:0">Built-in sounds <span class="label-note">— no network, works offline</span></div>
+  <div class="synths" id="synths"></div>
+
+  <div class="label">Add from YouTube</div>
   <div class="addbar">
     <label for="urlInput" class="sr-only">YouTube link or video ID</label>
     <input id="urlInput" type="text" placeholder="Paste a YouTube link or video ID…" autocomplete="off">
@@ -409,12 +433,17 @@
   </div>
 
   <p class="hint" id="hint">
-    Add this to your phone's home screen and it runs as its own app, offline.
+    <b>Built-in sounds</b> are generated in the browser — no download, no network,
+    and they keep playing offline and with the screen off. Each has a Tone control
+    instead of Speed. <b>YouTube layers</b> bring anything else, with speed and a
+    full-screen visualiser, but need a connection.
+    Add this to your phone's home screen and it runs as its own app.
     Audio begins after your first tap. Speed steps in 0.25× increments — that's the finest
-    YouTube's player allows. Mixing several videos works best with the screen on; Android may
-    pause background audio when the screen sleeps.
-    Tap <b>Visualise</b> on any layer to fill the screen with it. If playback stutters, switch the
-    visualiser to <b>Fit</b> — it letterboxes instead of cropping, which is far lighter on the phone.
+    YouTube's player allows. Mixing several videos works best with the screen on; turn on
+    <b>Screen staying on</b> in the bar below if Android pauses background audio.
+    Tap <b>Visualise</b> on any video layer to fill the screen with it. If playback stutters,
+    switch the visualiser to <b>Fit</b> — it letterboxes instead of cropping, which is far
+    lighter on the phone.
     A preset replaces what's playing; save your own blend first if you want to keep it.
     Your current blend is remembered between visits.
   </p>
@@ -490,6 +519,217 @@
 
   window.onYouTubeIframeAPIReady=function(){ apiReady=true; pendingCreates.forEach(function(f){f();}); pendingCreates=[]; };
 
+  /* ================= Web Audio layers =================
+     The ceiling on the YouTube path is structural: every layer is a full
+     video pipeline decoding frames into a 66x66 box to produce audio, the
+     stream is cross-origin so the audio is unreachable, and mobile suspends
+     it when the screen sleeps.
+
+     These layers are synthesised in-process instead. No file is fetched, so
+     they cost no bytes, work offline, survive the screen going off, carry no
+     third-party licence, and use a fraction of the CPU of a video decoder.
+     They are the beds the YouTube sources sit on top of.
+
+     One AudioContext is shared; each layer owns its own small graph ending
+     in a GainNode, so effectiveVol() drives synth and video layers
+     identically and mute/solo/fade need no special case. */
+  var audioCtx=null;
+  function ac(){
+    if(!audioCtx){
+      var C=window.AudioContext||window.webkitAudioContext;
+      if(!C) return null;
+      audioCtx=new C();
+    }
+    /* Browsers start the context suspended until a gesture. */
+    if(audioCtx.state==="suspended"){ try{ audioCtx.resume(); }catch(_){} }
+    return audioCtx;
+  }
+
+  var SYNTHS=[
+    {id:"rain",   name:"Rain",        cue:"steady rainfall"},
+    {id:"waves",  name:"Waves",       cue:"slow ocean swell"},
+    {id:"wind",   name:"Wind",        cue:"moving air"},
+    {id:"stream", name:"Stream",      cue:"running water"},
+    {id:"brown",  name:"Brown noise", cue:"deep even hush"},
+    {id:"pink",   name:"Pink noise",  cue:"balanced hush"},
+    {id:"drone",  name:"Drone",       cue:"low sustained pad"}
+  ];
+  function synthMeta(id){
+    for(var i=0;i<SYNTHS.length;i++) if(SYNTHS[i].id===id) return SYNTHS[i];
+    return null;
+  }
+
+  /* A few seconds of noise, looped. Generating it once per layer costs a few
+     ms and removes any need for a network request. */
+  var noiseCache={};
+  function noiseBuffer(ctx,kind){
+    var key=kind+"@"+ctx.sampleRate;
+    if(noiseCache[key]) return noiseCache[key];
+    var len=Math.floor(ctx.sampleRate*4), buf=ctx.createBuffer(1,len,ctx.sampleRate),
+        d=buf.getChannelData(0), i;
+    if(kind==="brown"){
+      var last=0;
+      for(i=0;i<len;i++){ var w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.5; }
+    } else if(kind==="pink"){
+      /* Paul Kellet's economy pink filter. */
+      var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(i=0;i<len;i++){
+        var wn=Math.random()*2-1;
+        b0=0.99886*b0+wn*0.0555179; b1=0.99332*b1+wn*0.0750759;
+        b2=0.96900*b2+wn*0.1538520; b3=0.86650*b3+wn*0.3104856;
+        b4=0.55000*b4+wn*0.5329522; b5=-0.7616*b5-wn*0.0168980;
+        d[i]=(b0+b1+b2+b3+b4+b5+b6+wn*0.5362)*0.11; b6=wn*0.115926;
+      }
+    } else {
+      for(i=0;i<len;i++) d[i]=Math.random()*2-1;
+    }
+    /* Crossfade the seam so the 4s loop has no audible click. */
+    var xf=Math.floor(ctx.sampleRate*0.05);
+    for(i=0;i<xf;i++){
+      var t=i/xf;
+      d[i]=d[i]*t+d[len-xf+i]*(1-t);
+    }
+    noiseCache[key]=buf;
+    return buf;
+  }
+
+  function lfo(ctx,rate,depth,target,base){
+    var o=ctx.createOscillator(), g=ctx.createGain();
+    o.type="sine"; o.frequency.value=rate; g.gain.value=depth;
+    target.value=base; o.connect(g); g.connect(target); o.start();
+    return o;
+  }
+
+  /* tone is 0..100 from the card's second slider; every synth maps it to the
+     parameter that most changes its character, so the control always does
+     something audible. */
+  function toneHz(tone,lo,hi){
+    var t=Math.max(0,Math.min(100,tone==null?50:tone))/100;
+    return lo*Math.pow(hi/lo,t);
+  }
+
+  function buildSynth(L){
+    var ctx=ac(); if(!ctx) return null;
+    var out=ctx.createGain(); out.gain.value=0;
+    var nodes=[], srcs=[], id=L.synth, tone=L.tone;
+
+    function noiseSource(kind){
+      var s=ctx.createBufferSource();
+      s.buffer=noiseBuffer(ctx,kind); s.loop=true; srcs.push(s); return s;
+    }
+
+    if(id==="drone"){
+      var mix=ctx.createGain(); mix.gain.value=0.28;
+      [55,55.28,82.5].forEach(function(f,i){
+        var o=ctx.createOscillator();
+        o.type=i===2?"triangle":"sawtooth"; o.frequency.value=f;
+        var g=ctx.createGain(); g.gain.value=i===2?0.25:0.5;
+        o.connect(g); g.connect(mix); o.start(); srcs.push(o);
+      });
+      var dlp=ctx.createBiquadFilter();
+      dlp.type="lowpass"; dlp.frequency.value=toneHz(tone,110,900); dlp.Q.value=0.6;
+      var dl=lfo(ctx,0.05,18,dlp.frequency,dlp.frequency.value); nodes.push(dl); srcs.push(dl);
+      mix.connect(dlp); dlp.connect(out);
+      return {out:out,srcs:srcs,tone:function(v){ dlp.frequency.value=toneHz(v,110,900); }};
+    }
+
+    if(id==="brown"||id==="pink"){
+      var n=noiseSource(id);
+      var lp=ctx.createBiquadFilter();
+      lp.type="lowpass"; lp.frequency.value=toneHz(tone,400,12000); lp.Q.value=0.4;
+      var ng=ctx.createGain(); ng.gain.value=id==="brown"?0.5:0.7;
+      n.connect(lp); lp.connect(ng); ng.connect(out); n.start();
+      return {out:out,srcs:srcs,tone:function(v){ lp.frequency.value=toneHz(v,400,12000); }};
+    }
+
+    if(id==="rain"){
+      /* Body plus a brighter patter layer — one filter alone reads as hiss. */
+      var body=noiseSource("brown"), pat=noiseSource("white");
+      var bl=ctx.createBiquadFilter(); bl.type="lowpass"; bl.frequency.value=1100;
+      var bg=ctx.createGain(); bg.gain.value=0.5;
+      var ph=ctx.createBiquadFilter();
+      ph.type="highpass"; ph.frequency.value=toneHz(tone,900,5200);
+      var pl=ctx.createBiquadFilter(); pl.type="lowpass"; pl.frequency.value=9000;
+      var pg=ctx.createGain(); pg.gain.value=0.16;
+      var shimmer=lfo(ctx,0.13,0.05,pg.gain,0.16); nodes.push(shimmer); srcs.push(shimmer);
+      body.connect(bl); bl.connect(bg); bg.connect(out);
+      pat.connect(ph); ph.connect(pl); pl.connect(pg); pg.connect(out);
+      body.start(); pat.start();
+      return {out:out,srcs:srcs,tone:function(v){ ph.frequency.value=toneHz(v,900,5200); }};
+    }
+
+    if(id==="waves"){
+      var w=noiseSource("brown");
+      var wf=ctx.createBiquadFilter();
+      wf.type="lowpass"; wf.frequency.value=toneHz(tone,300,2600); wf.Q.value=0.5;
+      var swell=ctx.createGain(); swell.gain.value=0.45;
+      /* Two slow, non-harmonic LFOs so the swell never settles into a
+         recognisable pulse. */
+      var s1=lfo(ctx,0.055,0.30,swell.gain,0.45); nodes.push(s1); srcs.push(s1);
+      var s2o=ctx.createOscillator(), s2g=ctx.createGain();
+      s2o.frequency.value=0.019; s2g.gain.value=0.12;
+      s2o.connect(s2g); s2g.connect(swell.gain); s2o.start(); srcs.push(s2o);
+      w.connect(wf); wf.connect(swell); swell.connect(out); w.start();
+      return {out:out,srcs:srcs,tone:function(v){ wf.frequency.value=toneHz(v,300,2600); }};
+    }
+
+    if(id==="wind"){
+      var a=noiseSource("brown");
+      var bp=ctx.createBiquadFilter();
+      bp.type="bandpass"; bp.Q.value=0.9;
+      var base=toneHz(tone,200,1800);
+      var m=lfo(ctx,0.07,base*0.45,bp.frequency,base); nodes.push(m); srcs.push(m);
+      var wg=ctx.createGain(); wg.gain.value=0.9;
+      var breath=lfo(ctx,0.041,0.25,wg.gain,0.9); nodes.push(breath); srcs.push(breath);
+      a.connect(bp); bp.connect(wg); wg.connect(out); a.start();
+      return {out:out,srcs:srcs,tone:function(v){
+        var b=toneHz(v,200,1800); bp.frequency.value=b; }};
+    }
+
+    /* stream */
+    var st=noiseSource("white");
+    var sbp=ctx.createBiquadFilter();
+    sbp.type="bandpass"; sbp.Q.value=0.5; sbp.frequency.value=toneHz(tone,700,4200);
+    var slp=ctx.createBiquadFilter(); slp.type="lowpass"; slp.frequency.value=7000;
+    var sg=ctx.createGain(); sg.gain.value=0.33;
+    var burble=lfo(ctx,0.23,0.06,sg.gain,0.33); nodes.push(burble); srcs.push(burble);
+    st.connect(sbp); sbp.connect(slp); slp.connect(sg); sg.connect(out); st.start();
+    return {out:out,srcs:srcs,tone:function(v){ sbp.frequency.value=toneHz(v,700,4200); }};
+  }
+
+  function startSynth(L){
+    if(L.wa) return true;
+    var g=buildSynth(L);
+    if(!g){ L.unavailable="This browser has no Web Audio support."; return false; }
+    g.out.connect(ac().destination);
+    L.wa=g; L.ready=true;
+    return true;
+  }
+  function stopSynth(L){
+    if(!L.wa) return;
+    try{ L.wa.srcs.forEach(function(s){ try{ s.stop(); }catch(_){} try{ s.disconnect(); }catch(_){} }); }catch(_){}
+    try{ L.wa.out.disconnect(); }catch(_){}
+    L.wa=null;
+  }
+  function isSynth(L){ return L.kind==="wa"; }
+
+  /* Tone reads as a word, not a number: "60" means nothing, "brighter" does. */
+  function toneLabel(v){
+    v=v==null?50:v;
+    if(v<20) return "darkest";
+    if(v<40) return "darker";
+    if(v<60) return "balanced";
+    if(v<80) return "brighter";
+    return "brightest";
+  }
+  var SYNTH_GLYPH='<svg viewBox="0 0 48 48" width="34" height="34" fill="none" '+
+    'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">'+
+    '<path d="M4 24c4 0 4-9 8-9s4 18 8 18 4-18 8-18 4 9 8 9"/>'+
+    '<path d="M40 24h4" opacity=".45"/></svg>';
+  var SYNTH_ICON='<svg viewBox="0 0 48 48" width="16" height="16" fill="none" '+
+    'stroke="currentColor" stroke-width="3.4" stroke-linecap="round">'+
+    '<path d="M5 24c4 0 4-9 8-9s4 18 8 18 4-18 8-18 4 9 8 9"/></svg>';
+
   /* A bare 11-char ID is valid input, but only when the whole string is one.
      The old last-resort /([a-zA-Z0-9_-]{11})/ matched any 11 word characters
      anywhere, so a Spotify link or a sentence produced a plausible-looking
@@ -511,16 +751,27 @@
 
   function addLayer(cfg){
     cfg=cfg||{};
-    var L={uid:"L"+(++seq), videoId:cfg.videoId,
-      title:cfg.title||("Loading… ("+cfg.videoId+")"),
+    var L={uid:"L"+(++seq), kind:cfg.synth?"wa":"yt",
+      videoId:cfg.videoId, synth:cfg.synth||null,
+      tone:cfg.tone!=null?cfg.tone:50,
+      title:cfg.title||(cfg.synth?(synthMeta(cfg.synth)||{name:"Sound"}).name
+                                :("Loading… ("+cfg.videoId+")")),
       volume:cfg.volume!=null?cfg.volume:60, speed:cfg.speed!=null?cfg.speed:1,
       loop:cfg.loop!=null?cfg.loop:true, playing:false, player:null, ready:false,
-      unavailable:null, rates:DEFAULT_RATES,
+      unavailable:null, rates:DEFAULT_RATES, muted:!!cfg.muted, wa:null,
       offset:cfg.offset!=null?cfg.offset:null, noShuffle:!!cfg.noShuffle};
-    layers.push(L); renderLayers(); createPlayer(L,!!cfg.autoplay);
-    /* Presets and saved mixes already carry a verified title, so fetching it
-       again is a wasted round-trip AND a wasted full re-render per layer. */
-    if(!cfg.title) fetchTitle(L);
+    layers.push(L); renderLayers();
+    if(isSynth(L)){
+      /* Synthesised layers are ready the moment their graph exists — no
+         network, no player to wait for. */
+      if(startSynth(L)){ if(cfg.autoplay) playLayer(L); else renderPlaying(L); }
+      else renderLayers();
+    } else {
+      createPlayer(L,!!cfg.autoplay);
+      /* Presets and saved mixes already carry a verified title, so fetching it
+         again is a wasted round-trip AND a wasted full re-render per layer. */
+      if(!cfg.title) fetchTitle(L);
+    }
     refreshEmpty(); saveSession();
     return L;
   }
@@ -598,8 +849,26 @@
   function effectiveVol(L){
     return Math.max(0,Math.min(100,Math.round(audible(L)*fadeFactor*(L.fade!=null?L.fade:1))));
   }
-  function applyVolume(L){ if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} } }
-  function applySpeed(L){ if(L.ready){ try{ L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){} } }
+  function applyVolume(L){
+    if(isSynth(L)){
+      if(L.wa){ try{
+        /* setTargetAtTime rather than a raw assignment: stepping a gain
+           produces an audible click, and the sleep fade updates every 2s. */
+        L.wa.out.gain.setTargetAtTime(effectiveVol(L)/100, ac().currentTime, 0.05);
+      }catch(_){} }
+      return;
+    }
+    if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} }
+  }
+  function applySpeed(L){
+    /* Synth layers have no transport to re-rate; their second slider is
+       Tone, handled separately. */
+    if(isSynth(L)) return;
+    if(L.ready){ try{ L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){} }
+  }
+  function applyTone(L){
+    if(isSynth(L) && L.wa && L.wa.tone){ try{ L.wa.tone(L.tone); }catch(_){} }
+  }
   /* ---------- Fade engine ----------
      One rAF loop drives every ramp, so N fading layers cost one timer, not N.
      Layers used to pop in at full volume and presets cut hard to silence —
@@ -629,7 +898,18 @@
   function cancelRamp(L){ ramps=ramps.filter(function(r){ return r.L!==L; }); }
 
   function playLayer(L,instant){
-    if(!L.ready||L.unavailable){ renderPlaying(L); return; }
+    if(L.unavailable){ renderPlaying(L); return; }
+    if(isSynth(L)){
+      /* A gesture reached us, so the AudioContext can be resumed. */
+      if(!L.wa && !startSynth(L)){ renderLayers(); return; }
+      try{ ac(); }catch(_){}
+      cancelRamp(L);
+      L.fade=instant?1:0; L.playing=true; applyVolume(L);
+      if(!instant) rampTo(L,1,FADE_IN);
+      renderPlaying(L); updateMediaSession();
+      return;
+    }
+    if(!L.ready){ renderPlaying(L); return; }
     cancelRamp(L);
     L.fade=instant?1:0; applyVolume(L);
     try{ L.player.playVideo(); L.playing=true; applySpeed(L); }catch(_){}
@@ -637,6 +917,16 @@
     renderPlaying(L); updateMediaSession();
   }
   function stopLayer(L,instant){
+    if(isSynth(L)){
+      cancelRamp(L);
+      L.playing=false;
+      /* The graph is torn down only on remove; pausing just closes the gain,
+         which keeps restart instant and silent. */
+      if(instant){ L.fade=0; applyVolume(L); }
+      else rampTo(L,0,FADE_OUT);
+      renderPlaying(L); updateMediaSession();
+      return;
+    }
     if(!L.ready){ L.playing=false; renderPlaying(L); return; }
     cancelRamp(L);
     var halt=function(){ try{ L.player.pauseVideo(); }catch(_){} L.fade=1; };
@@ -648,7 +938,8 @@
   function removeLayer(L){
     if(theatreLayer===L) exitTheatre();
     cancelRamp(L);
-    try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){}
+    if(isSynth(L)) stopSynth(L);
+    else { try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){} }
     if(soloLayer===L) soloLayer=null;
     layers=layers.filter(function(x){return x!==L;});
     renderLayers(); refreshEmpty(); saveSession(); updateMediaSession(); }
@@ -790,26 +1081,34 @@
       var el=document.getElementById("card_"+L.uid);
       if(!el){
         el=document.createElement("div"); el.className="layer"; el.id="card_"+L.uid;
+        var synth=isSynth(L);
         el.innerHTML=
           '<div class="layer-head">'+
-            '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>'+
+            (synth
+              ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
+              : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
             '<div class="meta"><p class="title" id="title_'+L.uid+'"></p><div class="status" id="status_'+L.uid+'"></div></div>'+
             '<button class="playbtn" id="pp_'+L.uid+'">▶</button>'+
           '</div>'+
           '<div class="ctl"><div class="lab"><span id="vname_'+L.uid+'">Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
             '<input type="range" min="0" max="100" id="vol_'+L.uid+'" aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"></div>'+
-          '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Speed</span><b id="slab_'+L.uid+'"></b></div>'+
-            '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'+
+          (synth
+            ? '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Tone</span><b id="slab_'+L.uid+'"></b></div>'+
+              '<input type="range" min="0" max="100" id="tone_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'
+            : '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Speed</span><b id="slab_'+L.uid+'"></b></div>'+
+              '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>')+
           '<div class="layer-foot">'+
             '<div class="foot-row">'+
-              '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
+              (synth
+                ? '<span class="tag-synth">Synth</span>'
+                : '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>')+
               '<div class="spacer"></div>'+
               '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">Mute</button>'+
               '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">Solo</button>'+
             '</div>'+
             '<div class="foot-row">'+
-              '<button class="tvbtn" id="tv_'+L.uid+'" aria-pressed="false">Visualise</button>'+
-              '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>'+
+              (synth ? '' : '<button class="tvbtn" id="tv_'+L.uid+'" aria-pressed="false">Visualise</button>'+
+                            '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>')+
               '<div class="spacer"></div>'+
               '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
             '</div>'+
@@ -819,25 +1118,41 @@
         vol.addEventListener("input",function(){ L.volume=+vol.value; applyVolume(L);
           document.getElementById("vlab_"+L.uid).textContent=L.volume+"%"; fillSlider(vol);
           if(theatreLayer===L){ tvol.value=L.volume; fillSlider(tvol); } saveSession(); });
+        /* Synth cards carry Tone where a video card carries Speed, and have
+           no Loop, Visualise or Retry — query defensively, not positionally. */
         var spd=el.querySelector("#spd_"+L.uid);
-        spd.addEventListener("input",function(){ L.speed=snapRate(L,+spd.value); applySpeed(L);
+        if(spd) spd.addEventListener("input",function(){ L.speed=snapRate(L,+spd.value); applySpeed(L);
           document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); saveSession(); });
-        el.querySelector("#loop_"+L.uid).addEventListener("change",function(e){ L.loop=e.target.checked; saveSession(); });
+        var tn=el.querySelector("#tone_"+L.uid);
+        if(tn) tn.addEventListener("input",function(){ L.tone=+tn.value; applyTone(L);
+          document.getElementById("slab_"+L.uid).textContent=toneLabel(L.tone); fillSlider(tn); saveSession(); });
+        var lp=el.querySelector("#loop_"+L.uid);
+        if(lp) lp.addEventListener("change",function(e){ L.loop=e.target.checked; saveSession(); });
         el.querySelector("#pp_"+L.uid).addEventListener("click",function(){ if(L.playing) stopLayer(L); else playLayer(L); });
         el.querySelector("#mute_"+L.uid).addEventListener("click",function(){ toggleMute(L); });
         el.querySelector("#solo_"+L.uid).addEventListener("click",function(){ toggleSolo(L); });
-        el.querySelector("#retry_"+L.uid).addEventListener("click",function(){ retryLayer(L); });
-        el.querySelector("#tv_"+L.uid).addEventListener("click",function(){ enterTheatre(L); });
+        var rt=el.querySelector("#retry_"+L.uid);
+        if(rt) rt.addEventListener("click",function(){ retryLayer(L); });
+        var tvb=el.querySelector("#tv_"+L.uid);
+        if(tvb) tvb.addEventListener("click",function(){ enterTheatre(L); });
         el.querySelector("#rm_"+L.uid).addEventListener("click",function(){ removeLayer(L); });
       }
       document.getElementById("title_"+L.uid).textContent=L.title;
       var vol=document.getElementById("vol_"+L.uid);
       if(vol && document.activeElement!==vol){ vol.value=L.volume; fillSlider(vol); }
       document.getElementById("vlab_"+L.uid).textContent=L.volume+"%";
-      var spd=document.getElementById("spd_"+L.uid);
-      if(spd && document.activeElement!==spd){ spd.value=L.speed; fillSlider(spd); }
-      document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×";
-      document.getElementById("loop_"+L.uid).checked=L.loop;
+      var slab=document.getElementById("slab_"+L.uid);
+      if(isSynth(L)){
+        var tn2=document.getElementById("tone_"+L.uid);
+        if(tn2 && document.activeElement!==tn2){ tn2.value=L.tone; fillSlider(tn2); }
+        if(slab) slab.textContent=toneLabel(L.tone);
+      } else {
+        var spd2=document.getElementById("spd_"+L.uid);
+        if(spd2 && document.activeElement!==spd2){ spd2.value=L.speed; fillSlider(spd2); }
+        if(slab) slab.textContent=L.speed.toFixed(2)+"×";
+        var lp2=document.getElementById("loop_"+L.uid);
+        if(lp2) lp2.checked=L.loop;
+      }
       var tv=document.getElementById("tv_"+L.uid);
       if(tv){ var on=(theatreLayer===L); tv.classList.toggle("active",on);
         tv.setAttribute("aria-pressed",on?"true":"false");
@@ -909,7 +1224,8 @@
       s.firstChild.textContent=L.unavailable; return; }
     if(!L.ready){ s.innerHTML="preparing…"; return; }
     var why = L.muted ? " · muted" : (soloLayer && soloLayer!==L) ? " · silenced by solo" : "";
-    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+L.speed.toFixed(2)+"× · "+L.volume+"%"+why;
+    var mid = isSynth(L) ? toneLabel(L.tone) : L.speed.toFixed(2)+"×";
+    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+mid+" · "+L.volume+"%"+why;
   }
   function refreshEmpty(){ document.getElementById("empty").style.display=layers.length?"none":"block"; }
 
@@ -1020,6 +1336,26 @@
     }
     apply();
   }
+  function renderSynths(){
+    var box=document.getElementById("synths");
+    if(!box) return;
+    SYNTHS.forEach(function(s){
+      var b=document.createElement("button");
+      b.className="synth-chip";
+      b.title="Add "+s.name+" — "+s.cue;
+      var ico=document.createElement("span"); ico.className="ico"; ico.innerHTML=SYNTH_ICON;
+      var n=document.createElement("span"); n.className="n"; n.textContent=s.name;
+      var c=document.createElement("span"); c.className="c"; c.textContent=s.cue;
+      b.appendChild(ico); b.appendChild(n); b.appendChild(c);
+      b.addEventListener("click",function(){
+        hideResume();
+        addLayer({synth:s.id,volume:55,autoplay:true});
+        toast('Added "'+s.name+'".');
+      });
+      box.appendChild(b);
+    });
+  }
+
   function renderPresets(){
     var box=document.getElementById("presets");
     PRESETS.forEach(function(p){
@@ -1038,12 +1374,15 @@
      carries the whole mix, so a link is the mix.
 
      Format: #m=videoId.vol.speedHundredths.flags,...
-     Speed is stored as an integer (75 = 0.75x) because a decimal point would
-     collide with the field separator. Video IDs are already [A-Za-z0-9_-],
-     so the whole string is URL-safe with no escaping. */
+     Speed is an integer (75 = 0.75x) because a decimal point would collide
+     with the field separator. A synth layer is written s<id>.vol.tone.flags —
+     the leading "s" distinguishes it from an 11-char video ID. Video IDs are
+     already [A-Za-z0-9_-], so the whole string is URL-safe with no escaping. */
   function encodeMix(list){
     return list.map(function(d){
       var f=(d.loop===false?"":"l")+(d.muted?"m":"");
+      if(d.kind==="wa"||d.synth)
+        return ["s"+d.synth,Math.round(d.volume),Math.round(d.tone==null?50:d.tone),f].join(".");
       return [d.videoId,Math.round(d.volume),Math.round((d.speed!=null?d.speed:1)*100),f].join(".");
     }).join(",");
   }
@@ -1052,12 +1391,20 @@
     String(s||"").split(",").forEach(function(chunk){
       var p=chunk.split(".");
       if(p.length<2) return;
-      var id=p[0];
+      var id=p[0], f=p[3]||"";
+      var a=parseInt(p[1],10), b=parseInt(p[2],10);
+      var vol=isFinite(a)?Math.max(0,Math.min(100,a)):60;
+      if(id.charAt(0)==="s"){
+        var sid=id.slice(1);
+        if(!synthMeta(sid)) return;
+        out.push({kind:"wa",synth:sid,volume:vol,
+          tone:isFinite(b)?Math.max(0,Math.min(100,b)):50,
+          loop:true,muted:f.indexOf("m")>=0});
+        return;
+      }
       if(!/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
-      var vol=parseInt(p[1],10), spd=parseInt(p[2],10), f=p[3]||"";
-      out.push({videoId:id,
-        volume:isFinite(vol)?Math.max(0,Math.min(100,vol)):60,
-        speed:isFinite(spd)?Math.max(0.25,Math.min(2,spd/100)):1,
+      out.push({kind:"yt",videoId:id,volume:vol,
+        speed:isFinite(b)?Math.max(0.25,Math.min(2,b/100)):1,
         loop:f.indexOf("l")>=0,
         muted:f.indexOf("m")>=0});
     });
@@ -1090,8 +1437,8 @@
     layers.slice().forEach(removeLayer);
     hideResume(); pendingTheatre=null;
     list.forEach(function(d){
-      var L=addLayer({videoId:d.videoId,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:false});
-      L.muted=!!d.muted;
+      addLayer({synth:d.synth,tone:d.tone,videoId:d.videoId,
+                volume:d.volume,speed:d.speed,loop:d.loop,muted:d.muted,autoplay:false});
     });
     showResume();
     toast("Shared soundscape loaded — press Resume.");
@@ -1100,7 +1447,13 @@
 
   function loadMixes(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(_){ return {}; } }
   function storeMixes(m){ try{ localStorage.setItem(LS_KEY,JSON.stringify(m)); }catch(_){ toast("Couldn't save (storage blocked)."); } }
-  function currentMixData(){ return layers.map(function(L){ return {videoId:L.videoId,title:L.title,volume:L.volume,speed:L.speed,loop:L.loop,muted:!!L.muted,visualiser:theatreLayer===L}; }); }
+  function currentMixData(){ return layers.map(function(L){
+    var d={kind:L.kind,volume:L.volume,loop:L.loop,muted:!!L.muted,title:L.title,
+           visualiser:theatreLayer===L};
+    if(isSynth(L)){ d.synth=L.synth; d.tone=L.tone; }
+    else { d.videoId=L.videoId; d.speed=L.speed; }
+    return d;
+  }); }
 
   /* ---------- Session persistence ----------
      A refresh used to lose the whole blend unless it had been explicitly saved
@@ -1132,10 +1485,10 @@
        you did not ask for is the opposite of what this app is for. */
     var vis=null;
     d.layers.forEach(function(x){
-      if(!x||!/^[a-zA-Z0-9_-]{11}$/.test(x.videoId||"")) return;
-      var L=addLayer({videoId:x.videoId,title:x.title,volume:x.volume,speed:x.speed,
-                      loop:x.loop,autoplay:false});
-      L.muted=!!x.muted;
+      if(!validLayer(x)) return;
+      var L=addLayer({kind:x.kind,synth:x.synth,tone:x.tone,
+                      videoId:x.videoId,title:x.title,volume:x.volume,speed:x.speed,
+                      loop:x.loop,muted:x.muted,autoplay:false});
       if(x.visualiser) vis=L;
     });
     if(!layers.length) return false;
@@ -1220,8 +1573,8 @@
     hideResume(); pendingTheatre=null; soloLayer=null;
     var vis=null;
     data.forEach(function(d){
-      var L=addLayer({videoId:d.videoId,title:d.title,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:true});
-      L.muted=!!d.muted;
+      var L=addLayer({synth:d.synth,tone:d.tone,videoId:d.videoId,title:d.title,
+                      volume:d.volume,speed:d.speed,loop:d.loop,muted:d.muted,autoplay:true});
       if(d.visualiser) vis=L;
     });
     if(vis) enterTheatre(vis);
@@ -1258,20 +1611,29 @@
      never silently overwrite a mix the user already has, and say which entries
      were dropped rather than a blanket "couldn't be read". */
   var SCHEMA=2;
+  /* A layer is valid if it is a known synth, or a well-formed video ID. */
   function validLayer(d){
-    return d && typeof d==="object" &&
-      /^[a-zA-Z0-9_-]{11}$/.test(d.videoId||"") &&
+    if(!d||typeof d!=="object") return false;
+    if(d.kind==="wa"||d.synth) return !!synthMeta(d.synth);
+    return /^[a-zA-Z0-9_-]{11}$/.test(d.videoId||"") &&
       (d.volume==null||(isFinite(d.volume)&&d.volume>=0&&d.volume<=100)) &&
       (d.speed==null||(isFinite(d.speed)&&d.speed>=0.25&&d.speed<=2));
   }
   function cleanLayer(d){
-    return {videoId:d.videoId,
+    var base={
       title:typeof d.title==="string"?d.title.slice(0,300):undefined,
-      volume:d.volume!=null?+d.volume:60,
-      speed:d.speed!=null?+d.speed:1,
+      volume:d.volume!=null&&isFinite(d.volume)?Math.max(0,Math.min(100,+d.volume)):60,
       loop:d.loop!==false,
       muted:!!d.muted,
       visualiser:!!d.visualiser};
+    if(d.kind==="wa"||d.synth){
+      base.kind="wa"; base.synth=d.synth;
+      base.tone=d.tone!=null&&isFinite(d.tone)?Math.max(0,Math.min(100,+d.tone)):50;
+    } else {
+      base.kind="yt"; base.videoId=d.videoId;
+      base.speed=d.speed!=null?+d.speed:1;
+    }
+    return base;
   }
   /* v1 had no muted/visualiser on layers and no dim/fit on the payload.
      Migrating explicitly beats letting undefined propagate into the UI. */
@@ -1427,7 +1789,7 @@
 
   document.body.classList.toggle("hidden-tab",document.hidden);
   fillSlider(tvol); fillSlider(tdim); applyFit();
-  renderPresets(); renderMixes();
+  renderSynths(); renderPresets(); renderMixes();
   /* A shared link is an explicit request and wins over the stored session. */
   if(!loadFromHash()) restoreSession();
   syncWake();

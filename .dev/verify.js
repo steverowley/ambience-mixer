@@ -147,6 +147,36 @@ const sandbox = {
     clipboard: { writeText: t => { sandbox.__copied = t; return Promise.resolve(); } }
   },
   MediaMetadata: function(o){ Object.assign(this,o); },
+  /* Web Audio stub: records the graph so tests can assert it was built,
+     without needing a real audio device. */
+  AudioContext: function(){
+    const mk = (type) => {
+      const n = {
+        type, _conns: [], connect(t){ this._conns.push(t); return t; }, disconnect(){},
+        start(){ n._started = true; }, stop(){ n._stopped = true; }
+      };
+      return n;
+    };
+    this.state = "running";
+    this.currentTime = 0;
+    this.sampleRate = 48000;
+    this.destination = mk("destination");
+    this.resume = () => { this.state = "running"; };
+    this._created = [];
+    const track = (n) => { this._created.push(n); return n; };
+    this.createGain = () => track(Object.assign(mk("gain"), {
+      gain: { value: 1, setTargetAtTime(v){ this.value = v; } } }));
+    this.createOscillator = () => track(Object.assign(mk("osc"), {
+      frequency: { value: 0 }, detune: { value: 0 } }));
+    this.createBiquadFilter = () => track(Object.assign(mk("biquad"), {
+      frequency: { value: 0 }, Q: { value: 0 }, gain: { value: 0 } }));
+    this.createBufferSource = () => track(Object.assign(mk("bufsrc"), {
+      buffer: null, loop: false, playbackRate: { value: 1 } }));
+    this.createBuffer = (ch, len, rate) => ({
+      length: len, sampleRate: rate, numberOfChannels: ch,
+      getChannelData: () => new Float32Array(len)
+    });
+  },
   requestAnimationFrame: f => { rafQueue.push(f); return rafQueue.length; },
   cancelAnimationFrame(){},
   setTimeout: (f)=>0, clearTimeout(){}, setInterval(){ return 0; }, clearInterval(){},
@@ -163,6 +193,8 @@ const sandbox = {
        PlayerState:{ENDED:0,PLAYING:1,PAUSED:2} }
 };
 sandbox.window.document = document_;
+// ac() looks up window.AudioContext, so the stub must live there too.
+sandbox.window.AudioContext = sandbox.AudioContext;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
@@ -172,6 +204,9 @@ const probe = app.replace(/\}\)\(\);\s*$/,
       renderMixes:renderMixes, loadMixes:loadMixes, storeMixes:storeMixes,
       encodeMix:encodeMix, decodeMix:decodeMix, validLayer:validLayer, cleanLayer:cleanLayer,
       toggleMute:toggleMute, toggleSolo:toggleSolo, solo:function(){return soloLayer;},
+      SYNTHS:SYNTHS, synthMeta:synthMeta, isSynth:isSynth, toneLabel:toneLabel,
+      applyTone:applyTone, ctx:function(){return audioCtx;}, applyVolume:applyVolume,
+      removeLayer:removeLayer, playLayer:playLayer, stopLayer:stopLayer,
       importMixes:importMixes, shareMix:shareMix, updateMediaSession:updateMediaSession,
       saveSessionNow:function(){ try{ localStorage.setItem(SESSION_KEY, JSON.stringify(
         {v:2,layers:currentMixData(),master:masterVolume,dim:dimLevel,fit:fitMode,
@@ -314,6 +349,94 @@ ok("session records layers", sess && sess.layers.length === 2);
 ok("session records mute state", sess && typeof sess.layers[0].muted === "boolean");
 ok("session records wake preference", sess && "wake" in sess);
 ok("session key separate from mixes", store["ambience.session.v1"] !== store["ambience.mixes.v1"]);
+
+// ---- Web Audio synth layers ----
+console.log("\n[web audio]");
+ok("seven built-in sounds offered", T.SYNTHS.length === 7, "got " + T.SYNTHS.length);
+ok("every synth has id, name and cue",
+   T.SYNTHS.every(s => s.id && s.name && s.cue));
+ok("synthMeta finds a known id", !!T.synthMeta("rain"));
+ok("synthMeta rejects an unknown id", T.synthMeta("nope") === null);
+
+ok("toneLabel is a word, not a number", T.toneLabel(50) === "balanced");
+ok("toneLabel spans the range",
+   new Set([0,25,50,75,100].map(T.toneLabel)).size === 5);
+
+// Every synth must actually build a graph that reaches the destination.
+T.layers().slice().forEach(T.removeLayer);
+let builtAll = true, reachedDest = true;
+for (const s of T.SYNTHS) {
+  const L = T.addLayer({ synth: s.id, volume: 60, autoplay: false });
+  if (!L.wa) { builtAll = false; console.log("      " + s.id + ": no graph"); continue; }
+  if (!L.wa.out._conns.length) { reachedDest = false; console.log("      " + s.id + ": not connected"); }
+  if (!L.wa.srcs.length) { builtAll = false; console.log("      " + s.id + ": no sources"); }
+}
+ok("all seven synths build a graph", builtAll);
+ok("every synth connects to the destination", reachedDest);
+ok("every synth layer is immediately ready (no network wait)",
+   T.layers().every(L => !T.isSynth(L) || L.ready));
+ok("synth sources are started", T.layers().every(L => !L.wa || L.wa.srcs.every(s => s._started)));
+
+const rain = T.layers().find(L => L.synth === "rain");
+ok("synth layer is flagged as such", T.isSynth(rain));
+ok("synth layer takes the sound's name", rain.title === "Rain");
+ok("synth layer has a tone, not a speed", rain.tone === 50);
+
+// Tone must actually move a filter.
+const toneBefore = JSON.stringify(T.ctx()._created.map(n => n.frequency && n.frequency.value));
+rain.tone = 95; T.applyTone(rain);
+const toneAfter = JSON.stringify(T.ctx()._created.map(n => n.frequency && n.frequency.value));
+ok("tone control changes the graph", toneBefore !== toneAfter);
+
+// Volume routes through the gain node, sharing effectiveVol with video layers.
+rain.volume = 100; rain.fade = 1; T.applyVolume(rain);
+const loud = rain.wa.out.gain.value;
+rain.volume = 25; T.applyVolume(rain);
+const quiet = rain.wa.out.gain.value;
+ok("synth volume routes through its gain node", loud > quiet, `${loud} vs ${quiet}`);
+ok("synth gain is normalised 0..1", loud <= 1 && loud > 0, String(loud));
+T.toggleMute(rain);
+ok("mute silences a synth layer", rain.wa.out.gain.value === 0);
+T.toggleMute(rain);
+
+// Removal must tear the graph down, or oscillators run forever.
+const countBefore = T.layers().length;
+T.removeLayer(rain);
+ok("removing a synth layer drops it", T.layers().length === countBefore - 1);
+ok("removing a synth layer stops its sources", rain.wa === null);
+
+// Share round-trip must carry synth layers.
+T.layers().slice().forEach(T.removeLayer);
+T.addLayer({ synth: "waves", volume: 70, tone: 30, autoplay: false });
+T.addLayer({ videoId: "x7SQaDTSrVg", volume: 40, speed: 0.75, autoplay: false });
+const mixed = T.encodeMix([
+  { kind: "wa", synth: "waves", volume: 70, tone: 30, loop: true, muted: false },
+  { kind: "yt", videoId: "x7SQaDTSrVg", volume: 40, speed: 0.75, loop: true, muted: false }
+]);
+const back = T.decodeMix(mixed);
+ok("share encodes a mixed soundscape", back.length === 2, mixed);
+ok("share round-trips the synth id", back[0].synth === "waves");
+ok("share round-trips the tone", back[0].tone === 30, String(back[0].tone));
+ok("share still round-trips the video layer",
+   back[1].videoId === "x7SQaDTSrVg" && back[1].speed === 0.75);
+ok("share stays URL-safe with synths", /^[A-Za-z0-9_\-.,]+$/.test(mixed), mixed);
+ok("share rejects an unknown synth id", T.decodeMix("snotreal.50.50.l").length === 0);
+
+// Validation must accept synths and still reject junk.
+ok("validLayer accepts a synth", T.validLayer({ kind: "wa", synth: "rain" }));
+ok("validLayer rejects an unknown synth", !T.validLayer({ kind: "wa", synth: "xxx" }));
+ok("cleanLayer preserves synth fields",
+   T.cleanLayer({ kind: "wa", synth: "wind", tone: 80 }).tone === 80);
+ok("cleanLayer clamps a bad tone",
+   T.cleanLayer({ kind: "wa", synth: "wind", tone: 999 }).tone === 100);
+
+// Session must persist both kinds.
+T.saveSessionNow();
+const s2 = JSON.parse(store["ambience.session.v1"] || "null");
+ok("session stores a mixed soundscape", s2 && s2.layers.length === 2);
+ok("session records the layer kind", s2 && s2.layers.every(l => l.kind));
+ok("session keeps synth id and tone",
+   s2 && s2.layers.some(l => l.synth === "waves" && l.tone === 30));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
