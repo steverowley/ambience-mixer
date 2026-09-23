@@ -15,13 +15,17 @@ const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
 
 function card({ title, status, playing, silent, gone, vol, spd, loop,
-                muted, soloed, visualising, retry }) {
+                muted, soloed, visualising, retry, synth, tone }) {
   const cls = ["layer", playing && "playing", silent && "silent", gone && "gone"]
     .filter(Boolean).join(" ");
+  const GLYPH = '<svg viewBox="0 0 48 48" width="34" height="34" fill="none" ' +
+    'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
+    '<path d="M4 24c4 0 4-9 8-9s4 18 8 18 4-18 8-18 4 9 8 9"/>' +
+    '<path d="M40 24h4" opacity=".45"/></svg>';
   return `
 <div class="${cls}">
   <div class="layer-head">
-    <div class="thumb"></div>
+    ${synth ? `<div class="thumb synth">${GLYPH}</div>` : '<div class="thumb"></div>'}
     <div class="meta">
       <p class="title">${title}</p>
       <div class="status">${status}</div>
@@ -30,18 +34,23 @@ function card({ title, status, playing, silent, gone, vol, spd, loop,
   </div>
   <div class="ctl"><div class="lab"><span>Volume</span><b>${vol}%</b></div>
     <input type="range" min="0" max="100" value="${vol}" style="--val:${vol}%"></div>
-  <div class="ctl"><div class="lab"><span>Speed</span><b>${spd.toFixed(2)}×</b></div>
-    <input type="range" min="0.25" max="2" step="0.25" value="${spd}"
-      style="--val:${((spd - 0.25) / 1.75 * 100).toFixed(0)}%"></div>
+  ${synth
+    ? `<div class="ctl"><div class="lab"><span>Tone</span><b>${tone.label}</b></div>
+        <input type="range" min="0" max="100" value="${tone.v}" style="--val:${tone.v}%"></div>`
+    : `<div class="ctl"><div class="lab"><span>Speed</span><b>${spd.toFixed(2)}×</b></div>
+        <input type="range" min="0.25" max="2" step="0.25" value="${spd}"
+          style="--val:${((spd - 0.25) / 1.75 * 100).toFixed(0)}%"></div>`}
   <div class="layer-foot">
     <div class="foot-row">
-      <label class="toggle"><input type="checkbox" ${loop ? "checked" : ""}><span class="sw"></span>Loop</label>
+      ${synth
+        ? '<span class="tag-synth">Synth</span>'
+        : `<label class="toggle"><input type="checkbox" ${loop ? "checked" : ""}><span class="sw"></span>Loop</label>`}
       <div class="spacer"></div>
       <button class="tvbtn ${muted ? "active" : ""}">${muted ? "Muted" : "Mute"}</button>
       <button class="tvbtn ${soloed ? "active" : ""}">${soloed ? "Soloed" : "Solo"}</button>
     </div>
     <div class="foot-row">
-      ${gone ? "" : `<button class="tvbtn ${visualising ? "active" : ""}">${visualising ? "Visualising" : "Visualise"}</button>`}
+      ${synth || gone ? "" : `<button class="tvbtn ${visualising ? "active" : ""}">${visualising ? "Visualising" : "Visualise"}</button>`}
       ${retry ? '<button class="tvbtn retry">Retry</button>' : ""}
       <div class="spacer"></div>
       <button class="remove">Remove</button>
@@ -51,6 +60,16 @@ function card({ title, status, playing, silent, gone, vol, spd, loop,
 }
 
 const states = [
+  { label: "Synth — playing", title: "Rain",
+    status: '<span class="live">● playing</span> · balanced · 55%',
+    playing: true, synth: true, tone: { v: 50, label: "balanced" }, vol: 55, spd: 1 },
+  { label: "Synth — tone turned up", title: "Waves",
+    status: '<span class="live">● playing</span> · brightest · 70%',
+    playing: true, synth: true, tone: { v: 92, label: "brightest" }, vol: 70, spd: 1 },
+  { label: "Synth — muted", title: "Brown noise",
+    status: '<span class="live">● playing</span> · darker · 40% · muted',
+    playing: true, silent: true, muted: true, synth: true,
+    tone: { v: 28, label: "darker" }, vol: 40, spd: 1 },
   { label: "Playing", title: "Rain On Window with Thunder Sounds — 10 Hours",
     status: '<span class="live">● playing</span> · 1.00× · 76%',
     playing: true, vol: 76, spd: 1, loop: true },

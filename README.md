@@ -9,16 +9,23 @@ volume, speed and loop, and blend them into something to work, read or sleep to.
 
 ## What it does
 
-- **Layers** — paste any YouTube link or video ID and it becomes a layer with
-  independent volume, playback speed (0.25×–2×) and loop.
+- **Built-in sounds** — seven sources synthesised in the browser with Web Audio:
+  rain, waves, wind, stream, brown noise, pink noise and a drone. Nothing is
+  downloaded, so they cost no bandwidth, work offline, and keep playing when the
+  screen sleeps. Each has a **Tone** control in place of Speed.
+- **YouTube layers** — paste any link or video ID for anything the built-ins
+  don't cover, with independent volume, playback speed (0.25×–2×) and loop.
+- **Mute and solo** per layer, without losing the level you set.
 - **Starter presets** — eight curated four-layer blends (Rainy night, Fireside,
   Corner café, Night train, Dawn chorus, Beneath the surface, The tavern,
   Idling starship). Each follows a bed / body / colour / ghost mixing shape.
 - **Saved mixes** — name and store your own blends in `localStorage`.
+- **Share** — a link carries the whole soundscape in its hash.
 - **Export / import** — round-trip everything as JSON.
 - **Sleep timer** — 15 minutes to 2 hours, with a 30-second fade-out.
-- **Visualise (theatre mode)** — fill the screen with any one layer, with dim
-  control, a Fit/Fill toggle and a screen wake lock.
+- **Visualise (theatre mode)** — fill the screen with any one video layer, with
+  dim control, a Fit/Fill toggle and a screen wake lock.
+- **Lock-screen controls** via the Media Session API, and a keep-awake switch.
 
 Playback speed is used as a mixing tool: YouTube preserves pitch when it changes
 rate, so 0.75× or 0.5× lengthens and deepens a layer without sounding slowed —

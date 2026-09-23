@@ -59,14 +59,20 @@ console.log(`            chip: ${chipFont}px, pad-x ${chipPadX}px, tracking ${ch
 /* ---- the two footer rows as actually emitted ---- */
 const row1 = { name: "row 1 (Loop / Mute / Solo)",
                items: [toggleWidth("Loop"), chipWidth("Muted"), chipWidth("Soloed")] };
+/* Synth cards carry a "Synthesised" tag where a video card has the Loop
+   switch — it is the widest thing that row can hold. */
+const row1s = { name: "row 1 synth (Synth tag / Mute / Solo)",
+                items: [chipWidth("Synth") + 4, chipWidth("Muted"), chipWidth("Soloed")] };
 /* Visualise and Retry are mutually exclusive: an errored layer hides
    Visualise, a healthy one hides Retry. Check both states. */
 const row2a = { name: "row 2 healthy (Visualising / Remove)",
                 items: [chipWidth("Visualising"), chipWidth("Remove")] };
 const row2b = { name: "row 2 errored (Retry / Remove)",
                 items: [chipWidth("Retry"), chipWidth("Remove")] };
+const row2s = { name: "row 2 synth (Remove only)",
+                items: [chipWidth("Remove")] };
 
-for (const row of [row1, row2a, row2b]) {
+for (const row of [row1, row1s, row2a, row2b, row2s]) {
   const content = row.items.reduce((a, b) => a + b, 0);
   const gaps = rowGap * (row.items.length - 1);
   const total = content + gaps;
