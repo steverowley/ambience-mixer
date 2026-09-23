@@ -1,4 +1,11 @@
 <!DOCTYPE html>
+<!--
+  Ambience — a calm soundscape mixer
+  Copyright © 2026 Stephen Rowley. All rights reserved.
+
+  Proprietary software. Viewing this source grants no licence to use, copy,
+  modify, host or distribute it. See LICENSE.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -15,8 +22,16 @@
 <title>Ambience — a calm soundscape mixer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/fraunces-subset.woff2" as="font" type="font/woff2" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
+  /* Fraunces is used for four short strings. Self-hosted as a 21KB subset so
+     it costs one same-origin request instead of a render-blocking
+     cross-origin stylesheet plus a font fetch. */
+  @font-face{
+    font-family:"Fraunces"; font-style:normal; font-weight:400;
+    font-display:swap; src:url("/fraunces-subset.woff2") format("woff2");
+  }
   :root{
     --bg:#0f1420;
     --indigo:#3b4e86; --purple:#5a4b7c; --teal:#2a6e6a;
@@ -194,6 +209,12 @@
     color:var(--text2); background:transparent; border:none; padding:6px 8px}
   .tvbtn:hover{color:var(--accent-glow); background:rgba(138,180,201,.1)}
   .tvbtn.active{color:var(--accent-glow)}
+  .tvbtn.retry{color:var(--warm)}
+  .tvbtn.retry:hover{background:rgba(217,168,126,.12)}
+  .tvbtn[hidden]{display:none}
+  /* Muted or silenced-by-solo: still there, clearly not contributing. */
+  .layer.silent{opacity:.55}
+  #btnWake.active{border-color:rgba(138,180,201,.55); color:var(--accent-glow)}
 
   /* ---------- Theatre mode ----------
      NOTE: any backdrop-filter/filter/transform on .layer would make it the
@@ -282,6 +303,23 @@
     pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:50}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 
+  /* ---------- Dialog ---------- */
+  .dlg{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+    padding:24px; background:rgba(8,11,22,.62); backdrop-filter:blur(6px)}
+  .dlg[hidden]{display:none}
+  .dlg-card{width:100%; max-width:400px; background:var(--raised); border:1px solid var(--line);
+    border-radius:var(--radius); padding:26px; box-shadow:var(--shadow)}
+  .dlg-card h2{font-family:"Fraunces",serif; font-weight:400; font-size:20px; margin:0 0 10px}
+  .dlg-card p{margin:0 0 16px; font-size:13.5px; color:var(--text2); line-height:1.55}
+  .dlg-card p[hidden]{display:none}
+  .dlg-card input{width:100%; color:var(--text); font:inherit; font-size:15px;
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:13px 15px; margin-bottom:18px}
+  .dlg-card input[hidden]{display:none}
+  .dlg-card input:focus{outline:none; border-color:rgba(138,180,201,.55); box-shadow:0 0 0 3px rgba(138,180,201,.12)}
+  .dlg-row{display:flex; gap:10px; justify-content:flex-end}
+  body.dialog-on{overflow:hidden}
+
   @media (max-width:520px){
     .grid{grid-template-columns:1fr}
     .dock{gap:12px} .dock .mvol{width:92px}
@@ -308,6 +346,7 @@
     <span class="tag">a calm soundscape mixer</span>
   </div>
   <div class="spacer"></div>
+  <button class="pill ghost" id="btnShare">Share</button>
   <button class="pill ghost" id="btnExport">Export</button>
   <button class="pill ghost" id="btnImport">Import</button>
   <input type="file" id="fileImport" accept="application/json" hidden>
@@ -369,6 +408,7 @@
   <button class="primary" id="btnPlayAll">▶ Play all</button>
   <button id="btnStopAll">Pause all</button>
   <button id="btnClearAll">Clear all</button>
+  <button id="btnWake" aria-pressed="false" title="Stop the screen sleeping so mobile keeps playing">Keep awake</button>
   <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume"></div>
   <div class="spacer"></div>
   <div class="timer">
@@ -388,6 +428,18 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="dlg" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" hidden>
+  <div class="dlg-card">
+    <h2 id="dlgTitle"></h2>
+    <p id="dlgBody" hidden></p>
+    <input id="dlgInput" type="text" autocomplete="off" aria-labelledby="dlgTitle" hidden>
+    <div class="dlg-row">
+      <button class="pill ghost" id="dlgCancel">Cancel</button>
+      <button class="pill primary" id="dlgOk">OK</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 (function(){
@@ -400,6 +452,8 @@
   var DEFAULT_RATES=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
   var theatreLayer=null, dimLevel=0.35, idleT=null, wakeLock=null;
   var fadeFactor=1;
+  var soloLayer=null;
+  var currentMixName=null;
   var fitOverridden=false;
   var fitMode=(window.innerHeight>window.innerWidth);
 
@@ -459,8 +513,8 @@
                 if(d&&d>60){ L.offset=Math.random()*(d-30); e.target.seekTo(L.offset,true); }
               }catch(_){}
             }
-            if(autoplay){ L.playing=true; try{ e.target.playVideo(); }catch(_){} }
-            syncTitleFromPlayer(L); renderLayers();
+            syncTitleFromPlayer(L); renderTitle(L);
+            if(autoplay) playLayer(L); else renderPlaying(L);
           },
           onStateChange:function(e){
             if(e.data===YT.PlayerState.ENDED && L.loop){ try{ L.player.seekTo(0); L.player.playVideo(); }catch(_){} }
@@ -490,25 +544,133 @@
   function fetchTitle(L){
     fetch("https://www.youtube.com/oembed?format=json&url=https://www.youtube.com/watch?v="+L.videoId)
       .then(function(r){ return r.ok?r.json():null; })
-      .then(function(d){ if(d&&d.title){ L.title=d.title; renderLayers(); } }).catch(function(){});
+      .then(function(d){ if(d&&d.title){ L.title=d.title; renderTitle(L); } }).catch(function(){});
   }
   function syncTitleFromPlayer(L){ try{ var d=L.player.getVideoData(); if(d&&d.title) L.title=d.title; }catch(_){} }
 
-  /* fadeFactor is the single authority for the sleep fade. The tick used to
-     write faded volumes straight to each player, so touching ANY slider called
-     applyVolume() and snapped the whole mix back to full, mid-fade, at 3am. */
-  function effectiveVol(L){ return Math.round(L.volume*masterVolume/100*fadeFactor); }
+  /* ---------- Volume ----------
+     Three things fold into one authority so they can never fight each other:
+     the layer's own level, the master, and any transient fade (sleep timer,
+     fade-in on play, crossfade on preset swap).
+
+     The slider value stays linear 0-100 — that is what gets saved, shared and
+     shown — but loudness is roughly logarithmic, so sending it straight to the
+     player wastes most of the travel: master at 50 sounds nearly as loud as
+     100. Squaring approximates equal-loudness closely enough for a mixer and
+     costs nothing. */
+  function perceptual(v){ return v*v/100; }
+  function audible(L){
+    if(soloLayer && soloLayer!==L) return 0;
+    if(L.muted) return 0;
+    return perceptual(L.volume)*perceptual(masterVolume)/100;
+  }
+  function effectiveVol(L){
+    return Math.max(0,Math.min(100,Math.round(audible(L)*fadeFactor*(L.fade!=null?L.fade:1))));
+  }
   function applyVolume(L){ if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} } }
   function applySpeed(L){ if(L.ready){ try{ L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){} } }
-  function playLayer(L){ if(L.ready){ try{ L.player.playVideo(); L.playing=true; applyVolume(L); applySpeed(L);}catch(_){} } renderPlaying(L); }
-  function stopLayer(L){ if(L.ready){ try{ L.player.pauseVideo(); L.playing=false; }catch(_){} } renderPlaying(L); }
+  /* ---------- Fade engine ----------
+     One rAF loop drives every ramp, so N fading layers cost one timer, not N.
+     Layers used to pop in at full volume and presets cut hard to silence —
+     jarring in an app whose whole premise is calm. */
+  var ramps=[], rampRAF=null;
+  var FADE_IN=1400, FADE_OUT=900;
+  function rampTo(L,to,ms,done){
+    ramps=ramps.filter(function(r){ return r.L!==L; });
+    var from=(L.fade!=null?L.fade:1);
+    if(ms<=0||from===to){ L.fade=to; applyVolume(L); if(done) done(); return; }
+    ramps.push({L:L,from:from,to:to,t0:Date.now(),ms:ms,done:done});
+    if(!rampRAF) rampRAF=requestAnimationFrame(stepRamps);
+  }
+  function stepRamps(){
+    var now=Date.now(), finished=[];
+    ramps.forEach(function(r){
+      var p=Math.min(1,(now-r.t0)/r.ms);
+      /* Equal-power: linear gain sounds like it drops fast then hangs. */
+      var e=r.from+(r.to-r.from)*Math.sin(p*Math.PI/2);
+      r.L.fade=e; applyVolume(r.L);
+      if(p>=1){ r.L.fade=r.to; applyVolume(r.L); finished.push(r); }
+    });
+    ramps=ramps.filter(function(r){ return finished.indexOf(r)<0; });
+    finished.forEach(function(r){ if(r.done) r.done(); });
+    rampRAF = ramps.length ? requestAnimationFrame(stepRamps) : null;
+  }
+  function cancelRamp(L){ ramps=ramps.filter(function(r){ return r.L!==L; }); }
+
+  function playLayer(L,instant){
+    if(!L.ready||L.unavailable){ renderPlaying(L); return; }
+    cancelRamp(L);
+    L.fade=instant?1:0; applyVolume(L);
+    try{ L.player.playVideo(); L.playing=true; applySpeed(L); }catch(_){}
+    if(!instant) rampTo(L,1,FADE_IN);
+    renderPlaying(L); updateMediaSession();
+  }
+  function stopLayer(L,instant){
+    if(!L.ready){ L.playing=false; renderPlaying(L); return; }
+    cancelRamp(L);
+    var halt=function(){ try{ L.player.pauseVideo(); }catch(_){} L.fade=1; };
+    L.playing=false;
+    if(instant){ halt(); }
+    else { rampTo(L,0,FADE_OUT,halt); }
+    renderPlaying(L); updateMediaSession();
+  }
   function removeLayer(L){
     if(theatreLayer===L) exitTheatre();
+    cancelRamp(L);
     try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){}
-    layers=layers.filter(function(x){return x!==L;}); renderLayers(); refreshEmpty(); saveSession(); }
-  function playAll(){ layers.forEach(playLayer); }
-  function stopAll(){ layers.forEach(stopLayer); }
+    if(soloLayer===L) soloLayer=null;
+    layers=layers.filter(function(x){return x!==L;});
+    renderLayers(); refreshEmpty(); saveSession(); updateMediaSession(); }
+  function playAll(){ layers.forEach(function(L){ playLayer(L); }); }
+  function stopAll(instant){ layers.forEach(function(L){ stopLayer(L,instant); }); }
   function clearAll(){ if(!layers.length){ toast("Nothing to clear."); return; } layers.slice().forEach(removeLayer); toast("Cleared all sounds."); }
+
+  /* ---------- Media Session ----------
+     Lock-screen controls, headphone buttons and the notification shade. For an
+     app whose headline feature is a sleep timer, needing to unlock the phone
+     and find the tab to pause was a real gap.
+
+     The YouTube iframes each try to claim the session, so we re-assert on
+     every state change rather than setting it once. */
+  var mediaSessionReady=false;
+  function updateMediaSession(){
+    if(!("mediaSession" in navigator)) return;
+    try{
+      var playing=layers.filter(function(L){ return L.playing; });
+      if(!layers.length){ navigator.mediaSession.metadata=null;
+        navigator.mediaSession.playbackState="none"; return; }
+      var lead=playing[0]||layers[0];
+      navigator.mediaSession.metadata=new MediaMetadata({
+        title:currentMixName||(playing.length?"Your soundscape":"Paused soundscape"),
+        artist:playing.length?playing.length+" layer"+(playing.length===1?"":"s")+" playing":"Paused",
+        album:lead?lead.title:"Ambience",
+        artwork:[
+          {src:"/icon-192.png",sizes:"192x192",type:"image/png"},
+          {src:"/icon-512.png",sizes:"512x512",type:"image/png"}
+        ]
+      });
+      navigator.mediaSession.playbackState=playing.length?"playing":"paused";
+      if(mediaSessionReady) return;
+      var set=function(action,fn){ try{ navigator.mediaSession.setActionHandler(action,fn); }catch(_){} };
+      set("play",function(){ playAll(); });
+      set("pause",function(){ stopAll(); });
+      set("stop",function(){ stopAll(true); });
+      mediaSessionReady=true;
+    }catch(_){}
+  }
+
+  /* ---------- Wake lock ----------
+     requestWake() already existed but only fired in theatre mode, while the
+     hint text apologised for the exact problem it solves. Now also available
+     as a dock toggle for audio-only listening. */
+  var wakeWanted=false;
+  function syncWake(){
+    if(wakeWanted||theatreLayer) requestWake(); else releaseWake();
+    var b=document.getElementById("btnWake");
+    if(b){ b.classList.toggle("active",wakeWanted);
+      b.setAttribute("aria-pressed",wakeWanted?"true":"false");
+      b.textContent=wakeWanted?"Screen on":"Keep awake"; }
+  }
 
   /* ---------- Theatre mode ----------
      The iframe is never moved in the DOM — doing so would reload it and restart
@@ -556,7 +718,7 @@
     shade.classList.remove("on"); shade.style.opacity=0;
     catcher.classList.remove("on");
     tbar.classList.remove("on"); tbar.classList.remove("idle");
-    clearTimeout(idleT); releaseWake(); renderLayers();
+    clearTimeout(idleT); syncWake(); renderLayers();
   }
   function wakeControls(){
     tbar.classList.remove("idle"); clearTimeout(idleT);
@@ -578,9 +740,11 @@
     toast(fitMode?"Letterboxed — lighter on the device.":"Cropped to fill — heavier on the device."); });
   document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&theatreLayer) exitTheatre(); });
   document.addEventListener("visibilitychange",function(){
-    if(document.visibilityState==="visible"&&theatreLayer) requestWake(); });
+    /* Wake locks are released automatically when a tab is hidden; re-acquire
+       if the user still wants one (theatre, or the dock toggle). */
+    if(document.visibilityState==="visible") syncWake(); });
   tdim.addEventListener("input",function(){ dimLevel=+tdim.value/100; shade.style.opacity=dimLevel;
-    fillSlider(tdim); wakeControls(); });
+    fillSlider(tdim); wakeControls(); saveSession(); });
   tvol.addEventListener("input",function(){ if(!theatreLayer) return;
     var L=theatreLayer; L.volume=+tvol.value; applyVolume(L); fillSlider(tvol);
     var v=document.getElementById("vol_"+L.uid); if(v){ v.value=L.volume; fillSlider(v); }
@@ -607,8 +771,11 @@
             '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'+
           '<div class="layer-foot">'+
             '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
+            '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">Mute</button>'+
+            '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">Solo</button>'+
             '<button class="tvbtn" id="tv_'+L.uid+'">Visualise</button>'+
             '<div class="spacer"></div>'+
+            '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>'+
             '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
           '</div>';
         grid.appendChild(el);
@@ -621,6 +788,9 @@
           document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); saveSession(); });
         el.querySelector("#loop_"+L.uid).addEventListener("change",function(e){ L.loop=e.target.checked; saveSession(); });
         el.querySelector("#pp_"+L.uid).addEventListener("click",function(){ if(L.playing) stopLayer(L); else playLayer(L); });
+        el.querySelector("#mute_"+L.uid).addEventListener("click",function(){ toggleMute(L); });
+        el.querySelector("#solo_"+L.uid).addEventListener("click",function(){ toggleSolo(L); });
+        el.querySelector("#retry_"+L.uid).addEventListener("click",function(){ retryLayer(L); });
         el.querySelector("#tv_"+L.uid).addEventListener("click",function(){ enterTheatre(L); });
         el.querySelector("#rm_"+L.uid).addEventListener("click",function(){ removeLayer(L); });
       }
@@ -634,6 +804,16 @@
       document.getElementById("loop_"+L.uid).checked=L.loop;
       var tv=document.getElementById("tv_"+L.uid);
       if(tv){ var on=(theatreLayer===L); tv.classList.toggle("active",on); tv.textContent=on?"Visualising":"Visualise"; }
+      var mb=document.getElementById("mute_"+L.uid);
+      if(mb){ mb.classList.toggle("active",!!L.muted);
+        mb.setAttribute("aria-pressed",L.muted?"true":"false");
+        mb.textContent=L.muted?"Muted":"Mute"; }
+      var sb=document.getElementById("solo_"+L.uid);
+      if(sb){ var sOn=(soloLayer===L); sb.classList.toggle("active",sOn);
+        sb.setAttribute("aria-pressed",sOn?"true":"false");
+        sb.textContent=sOn?"Soloed":"Solo"; }
+      var rb=document.getElementById("retry_"+L.uid);
+      if(rb) rb.hidden=!L.unavailable;
       if(theatreLayer===L) tname.textContent=L.title;
       renderPlaying(L);
     });
@@ -641,16 +821,54 @@
       var uid=el.id.replace("card_",""); if(!layers.some(function(L){return L.uid===uid;})) el.remove();
     });
   }
+  /* Mute keeps the layer's level intact — dragging the slider to zero to
+     silence something destroys the balance you set. Solo is the other half of
+     the same question: "what does this one actually sound like?" */
+  function toggleMute(L){
+    L.muted=!L.muted;
+    if(L.muted && soloLayer===L) soloLayer=null;
+    layers.forEach(applyVolume); renderLayers(); saveSession();
+  }
+  function toggleSolo(L){
+    soloLayer = (soloLayer===L) ? null : L;
+    if(soloLayer){ soloLayer.muted=false; }
+    layers.forEach(applyVolume); renderLayers(); saveSession();
+  }
+  /* Errors 2 and 5 are often transient; 100/101/150 are permanent. Both used
+     to leave Remove as the only option. */
+  function retryLayer(L){
+    if(!L.unavailable) return;
+    L.unavailable=null; L.ready=false; L.playing=false;
+    try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){}
+    var host=document.getElementById("card_"+L.uid);
+    if(host){ var t=host.querySelector(".thumb");
+      if(t){ t.innerHTML='<div class="yt" id="yt_'+L.uid+'"></div>'; } }
+    renderLayers();
+    createPlayer(L,true);
+    toast("Retrying that layer…");
+  }
+
+  /* A resolved title affects one card. renderLayers() walks every layer and
+     touches ~12 nodes each, so give the common case its own narrow path. */
+  function renderTitle(L){
+    var t=document.getElementById("title_"+L.uid);
+    if(t) t.textContent=L.title;
+    if(theatreLayer===L) tname.textContent=L.title;
+    updateMediaSession();
+  }
   function renderPlaying(L){
     var el=document.getElementById("card_"+L.uid); if(!el) return;
     el.classList.toggle("playing",L.playing && !L.unavailable);
     el.classList.toggle("gone",!!L.unavailable);
+    el.classList.toggle("silent",!L.unavailable && (L.muted || (soloLayer && soloLayer!==L)));
     var pp=document.getElementById("pp_"+L.uid); if(pp) pp.textContent=L.playing?"⏸":"▶";
     if(theatreLayer===L) tplay.textContent=L.playing?"⏸":"▶";
     var s=document.getElementById("status_"+L.uid); if(!s) return;
-    if(L.unavailable){ s.innerHTML='<span class="gone">'+L.unavailable+'</span>'; return; }
+    if(L.unavailable){ s.innerHTML='<span class="gone"></span>';
+      s.firstChild.textContent=L.unavailable; return; }
     if(!L.ready){ s.innerHTML="preparing…"; return; }
-    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+L.speed.toFixed(2)+"× · "+L.volume+"%";
+    var why = L.muted ? " · muted" : (soloLayer && soloLayer!==L) ? " · silenced by solo" : "";
+    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+L.speed.toFixed(2)+"× · "+L.volume+"%"+why;
   }
   function refreshEmpty(){ document.getElementById("empty").style.display=layers.length?"none":"block"; }
 
@@ -743,16 +961,23 @@
     /* A preset is a starting point, so it replaces rather than stacks — four
        layers on top of four already playing is mud, and more players than a
        phone can decode. Ask first, because the current blend may be unsaved. */
+    var apply=function(){
+      layers.slice().forEach(removeLayer);
+      hideResume(); pendingTheatre=null; soloLayer=null; currentMixName=p.name;
+      p.layers.forEach(function(it){
+        addLayer({videoId:it.id,title:it.t,volume:it.v,speed:it.s,loop:true,autoplay:true});
+      });
+      updateMediaSession();
+      toast('Loaded "'+p.name+'" — '+p.layers.length+' layers.');
+    };
     if(layers.length){
       var n=layers.length;
-      if(!confirm('Replace the current '+n+' layer'+(n===1?'':'s')+' with "'+p.name+'"?')) return;
-      layers.slice().forEach(removeLayer);
+      askConfirm('Load "'+p.name+'"?',
+        "This replaces the "+n+" layer"+(n===1?"":"s")+" playing now. Save your blend first if you want to keep it.",
+        "Replace",function(yes){ if(yes) apply(); });
+      return;
     }
-    hideResume(); pendingTheatre=null;
-    p.layers.forEach(function(it){
-      addLayer({videoId:it.id,title:it.t,volume:it.v,speed:it.s,loop:true,autoplay:true});
-    });
-    toast('Loaded "'+p.name+'" — '+p.layers.length+' layers.');
+    apply();
   }
   function renderPresets(){
     var box=document.getElementById("presets");
@@ -766,9 +991,75 @@
     });
   }
 
+  /* ---------- Share ----------
+     Export produces a file the recipient must download and import — too much
+     friction for something people would otherwise send casually. The hash
+     carries the whole mix, so a link is the mix.
+
+     Format: #m=videoId.vol.speedHundredths.flags,...
+     Speed is stored as an integer (75 = 0.75x) because a decimal point would
+     collide with the field separator. Video IDs are already [A-Za-z0-9_-],
+     so the whole string is URL-safe with no escaping. */
+  function encodeMix(list){
+    return list.map(function(d){
+      var f=(d.loop===false?"":"l")+(d.muted?"m":"");
+      return [d.videoId,Math.round(d.volume),Math.round((d.speed!=null?d.speed:1)*100),f].join(".");
+    }).join(",");
+  }
+  function decodeMix(s){
+    var out=[];
+    String(s||"").split(",").forEach(function(chunk){
+      var p=chunk.split(".");
+      if(p.length<2) return;
+      var id=p[0];
+      if(!/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
+      var vol=parseInt(p[1],10), spd=parseInt(p[2],10), f=p[3]||"";
+      out.push({videoId:id,
+        volume:isFinite(vol)?Math.max(0,Math.min(100,vol)):60,
+        speed:isFinite(spd)?Math.max(0.25,Math.min(2,spd/100)):1,
+        loop:f.indexOf("l")>=0,
+        muted:f.indexOf("m")>=0});
+    });
+    return out;
+  }
+  function shareMix(){
+    if(!layers.length){ toast("Add some layers first."); return; }
+    var url=location.origin+location.pathname+"#m="+encodeMix(currentMixData());
+    var done=function(){ toast("Link copied — send it to anyone."); };
+    if(navigator.share){
+      navigator.share({title:"Ambience",text:"A soundscape for you",url:url})
+        .then(function(){}).catch(function(){ copyText(url,done); });
+      return;
+    }
+    copyText(url,done);
+  }
+  function copyText(text,done){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ promptCopy(text); });
+    } else promptCopy(text);
+  }
+  function promptCopy(text){
+    openDialog({title:"Copy this link",input:true,value:text,confirmLabel:"Done"},function(){});
+  }
+  function loadFromHash(){
+    var m=/[#&]m=([^&]+)/.exec(location.hash||"");
+    if(!m) return false;
+    var list=decodeMix(decodeURIComponent(m[1]));
+    if(!list.length) return false;
+    layers.slice().forEach(removeLayer);
+    hideResume(); pendingTheatre=null;
+    list.forEach(function(d){
+      var L=addLayer({videoId:d.videoId,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:false});
+      L.muted=!!d.muted;
+    });
+    showResume();
+    toast("Shared soundscape loaded — press Resume.");
+    return true;
+  }
+
   function loadMixes(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(_){ return {}; } }
   function storeMixes(m){ try{ localStorage.setItem(LS_KEY,JSON.stringify(m)); }catch(_){ toast("Couldn't save (storage blocked)."); } }
-  function currentMixData(){ return layers.map(function(L){ return {videoId:L.videoId,title:L.title,volume:L.volume,speed:L.speed,loop:L.loop,visualiser:theatreLayer===L}; }); }
+  function currentMixData(){ return layers.map(function(L){ return {videoId:L.videoId,title:L.title,volume:L.volume,speed:L.speed,loop:L.loop,muted:!!L.muted,visualiser:theatreLayer===L}; }); }
 
   /* ---------- Session persistence ----------
      A refresh used to lose the whole blend unless it had been explicitly saved
@@ -781,7 +1072,9 @@
       try{
         localStorage.setItem(SESSION_KEY,JSON.stringify({
           v:2, layers:currentMixData(), master:masterVolume,
-          dim:dimLevel, fit:fitMode, sleep:+document.getElementById("sleepSel").value||0
+          dim:dimLevel, fit:fitMode, wake:wakeWanted, name:currentMixName,
+          solo:soloLayer?layers.indexOf(soloLayer):-1,
+          sleep:+document.getElementById("sleepSel").value||0
         }));
       }catch(_){}
     },400);
@@ -801,10 +1094,15 @@
       if(!x||!/^[a-zA-Z0-9_-]{11}$/.test(x.videoId||"")) return;
       var L=addLayer({videoId:x.videoId,title:x.title,volume:x.volume,speed:x.speed,
                       loop:x.loop,autoplay:false});
+      L.muted=!!x.muted;
       if(x.visualiser) vis=L;
     });
     if(!layers.length) return false;
+    if(typeof d.solo==="number" && d.solo>=0 && layers[d.solo]) soloLayer=layers[d.solo];
+    if(typeof d.name==="string") currentMixName=d.name;
+    if(d.wake){ wakeWanted=true; }
     if(vis) pendingTheatre=vis;
+    renderLayers();
     showResume();
     return true;
   }
@@ -815,20 +1113,79 @@
       layers.length+" layer"+(layers.length===1?"":"s");
   }
   function hideResume(){ document.getElementById("resume").hidden=true; }
+  /* ---------- Dialog ----------
+     Native prompt()/confirm() are unstyleable, block the main thread, and are
+     suppressed outright in some installed-PWA contexts — where saving a mix
+     would then silently do nothing. */
+  var dlg=document.getElementById("dlg"), dlgTitle=document.getElementById("dlgTitle"),
+      dlgBody=document.getElementById("dlgBody"), dlgInput=document.getElementById("dlgInput"),
+      dlgOk=document.getElementById("dlgOk"), dlgCancel=document.getElementById("dlgCancel");
+  var dlgResolve=null, dlgLastFocus=null;
+  function closeDialog(value){
+    dlg.hidden=true; document.body.classList.remove("dialog-on");
+    var r=dlgResolve; dlgResolve=null;
+    if(dlgLastFocus&&dlgLastFocus.focus) try{ dlgLastFocus.focus(); }catch(_){}
+    if(r) r(value);
+  }
+  function openDialog(opts,cb){
+    dlgResolve=cb;
+    dlgLastFocus=document.activeElement;
+    dlgTitle.textContent=opts.title||"";
+    dlgBody.textContent=opts.body||"";
+    dlgBody.hidden=!opts.body;
+    dlgInput.hidden=!opts.input;
+    dlgOk.textContent=opts.confirmLabel||"OK";
+    if(opts.input){ dlgInput.value=opts.value||""; }
+    dlg.hidden=false; document.body.classList.add("dialog-on");
+    setTimeout(function(){ try{ (opts.input?dlgInput:dlgOk).focus(); }catch(_){} },30);
+  }
+  function askText(title,value,cb){ openDialog({title:title,input:true,value:value,confirmLabel:"Save"},cb); }
+  function askConfirm(title,body,label,cb){
+    openDialog({title:title,body:body,confirmLabel:label||"Replace"},function(v){ cb(v!==null); });
+  }
+  dlgOk.addEventListener("click",function(){
+    closeDialog(dlgInput.hidden?true:String(dlgInput.value||"").trim());
+  });
+  dlgCancel.addEventListener("click",function(){ closeDialog(null); });
+  dlg.addEventListener("click",function(e){ if(e.target===dlg) closeDialog(null); });
+  dlgInput.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ e.preventDefault(); dlgOk.dispatch?dlgOk.dispatch("click"):dlgOk.click(); } });
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"&&!dlg.hidden){ e.preventDefault(); closeDialog(null); } });
+
   function saveCurrent(){
     if(!layers.length){ toast("Add some layers first."); return; }
-    var name=prompt("Name this mix:","My mix"); if(!name) return;
-    var m=loadMixes(); m[name]=currentMixData(); storeMixes(m); renderMixes(); toast('Saved "'+name+'".');
+    askText("Name this mix",currentMixName||"My mix",function(name){
+      if(!name) return;
+      name=String(name).slice(0,120);
+      var m=loadMixes();
+      var write=function(){
+        var mm=loadMixes(); mm[name]=currentMixData(); storeMixes(mm); renderMixes();
+        currentMixName=name; updateMediaSession(); saveSession();
+        toast('Saved "'+name+'".');
+      };
+      if(Object.prototype.hasOwnProperty.call(m,name)){
+        askConfirm("Replace \u201c"+name+"\u201d?",
+          "A mix with that name already exists. This will overwrite it.",
+          "Replace",function(yes){ if(yes) write(); });
+      } else write();
+    });
   }
-  function loadMix(name,data,replace){
-    if(replace) layers.slice().forEach(removeLayer);
-    hideResume(); pendingTheatre=null;
+  /* Always replaces: loading a mix alongside a running one stacks four more
+     decoders on a phone that is already struggling. Kept as the only
+     behaviour rather than a parameter no caller ever varied. */
+  function loadMix(name,data){
+    layers.slice().forEach(removeLayer);
+    hideResume(); pendingTheatre=null; soloLayer=null;
     var vis=null;
     data.forEach(function(d){
       var L=addLayer({videoId:d.videoId,title:d.title,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:true});
+      L.muted=!!d.muted;
       if(d.visualiser) vis=L;
     });
     if(vis) enterTheatre(vis);
+    currentMixName=(name==="imported")?null:name;
+    updateMediaSession();
     toast('Loaded "'+name+'".');
   }
   function renderMixes(){
@@ -846,29 +1203,95 @@
       n.title='Load "'+name+'"';
       var x=document.createElement("button"); x.className="x"; x.textContent="✕";
       x.setAttribute("aria-label",'Delete mix "'+name+'"');
-      n.addEventListener("click",function(){ loadMix(name,m[name],true); });
+      n.addEventListener("click",function(){ loadMix(name,m[name]); });
       n.addEventListener("keydown",function(e){
-        if(e.key==="Enter"||e.key===" "){ e.preventDefault(); loadMix(name,m[name],true); } });
+        if(e.key==="Enter"||e.key===" "){ e.preventDefault(); loadMix(name,m[name]); } });
       x.addEventListener("click",function(){ var mm=loadMixes(); delete mm[name]; storeMixes(mm); renderMixes(); });
       el.appendChild(n); el.appendChild(x);
       box.appendChild(el);
     });
   }
 
+  /* ---------- Import / export ----------
+     Imported files are someone else's data: validate shape before trusting it,
+     never silently overwrite a mix the user already has, and say which entries
+     were dropped rather than a blanket "couldn't be read". */
+  var SCHEMA=2;
+  function validLayer(d){
+    return d && typeof d==="object" &&
+      /^[a-zA-Z0-9_-]{11}$/.test(d.videoId||"") &&
+      (d.volume==null||(isFinite(d.volume)&&d.volume>=0&&d.volume<=100)) &&
+      (d.speed==null||(isFinite(d.speed)&&d.speed>=0.25&&d.speed<=2));
+  }
+  function cleanLayer(d){
+    return {videoId:d.videoId,
+      title:typeof d.title==="string"?d.title.slice(0,300):undefined,
+      volume:d.volume!=null?+d.volume:60,
+      speed:d.speed!=null?+d.speed:1,
+      loop:d.loop!==false,
+      muted:!!d.muted,
+      visualiser:!!d.visualiser};
+  }
+  /* v1 had no muted/visualiser on layers and no dim/fit on the payload.
+     Migrating explicitly beats letting undefined propagate into the UI. */
+  function migrate(payload){
+    var v=+payload.version||1;
+    if(v>SCHEMA) return null;
+    return payload;
+  }
   function exportMixes(){
-    var payload={app:"ambience",version:2,exported:new Date().toISOString(),dim:dimLevel,fit:fitMode,current:currentMixData(),saved:loadMixes()};
+    var payload={app:"ambience",version:SCHEMA,exported:new Date().toISOString(),
+      dim:dimLevel,fit:fitMode,master:masterVolume,
+      current:currentMixData(),saved:loadMixes()};
     var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
     var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="ambience-mixes.json"; a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); },2000); toast("Exported your mixes.");
   }
   function importMixes(file){
     var r=new FileReader();
-    r.onload=function(){ try{ var d=JSON.parse(r.result);
-      if(typeof d.dim==="number"){ dimLevel=d.dim; tdim.value=Math.round(dimLevel*100); fillSlider(tdim); }
-      if(typeof d.fit==="boolean"){ fitMode=d.fit; applyFit(); }
-      if(d.saved){ var m=loadMixes(); Object.keys(d.saved).forEach(function(k){ m[k]=d.saved[k]; }); storeMixes(m); renderMixes(); }
-      if(d.current&&d.current.length){ loadMix("imported",d.current,true); } toast("Imported.");
-    }catch(_){ toast("That file couldn't be read."); } };
+    r.onload=function(){
+      var d;
+      try{ d=JSON.parse(r.result); }
+      catch(_){ toast("That file isn't valid JSON."); return; }
+      if(!d||typeof d!=="object"){ toast("That file isn't an Ambience export."); return; }
+      if(d.app&&d.app!=="ambience"){ toast("That file is from a different app."); return; }
+      if(!migrate(d)){ toast("That file is from a newer version of Ambience."); return; }
+
+      var added=0, renamed=0, skipped=0;
+      if(d.dim!=null && isFinite(d.dim)){ dimLevel=Math.max(0,Math.min(.85,+d.dim));
+        tdim.value=Math.round(dimLevel*100); fillSlider(tdim); }
+      if(typeof d.fit==="boolean"){ fitMode=d.fit; fitOverridden=true; applyFit(); }
+      if(d.master!=null && isFinite(d.master)){ masterVolume=Math.max(0,Math.min(100,+d.master));
+        var mvEl=document.getElementById("masterVol"); mvEl.value=masterVolume; fillSlider(mvEl);
+        layers.forEach(applyVolume); }
+
+      if(d.saved && typeof d.saved==="object"){
+        var m=loadMixes();
+        Object.keys(d.saved).forEach(function(k){
+          var list=d.saved[k];
+          if(!Array.isArray(list)){ skipped++; return; }
+          var good=list.filter(validLayer).map(cleanLayer);
+          if(!good.length){ skipped++; return; }
+          /* Never clobber: suffix instead. */
+          var name=String(k).slice(0,120), n=2;
+          if(Object.prototype.hasOwnProperty.call(m,name)){
+            while(Object.prototype.hasOwnProperty.call(m,name+" ("+n+")")) n++;
+            name=name+" ("+n+")"; renamed++;
+          }
+          m[name]=good; added++;
+        });
+        storeMixes(m); renderMixes();
+      }
+      if(Array.isArray(d.current)&&d.current.length){
+        var cur=d.current.filter(validLayer).map(cleanLayer);
+        if(cur.length) loadMix("imported",cur); else skipped++;
+      }
+      var msg="Imported "+added+" mix"+(added===1?"":"es")+".";
+      if(renamed) msg+=" "+renamed+" renamed to avoid overwriting.";
+      if(skipped) msg+=" "+skipped+" skipped as unreadable.";
+      toast(msg);
+    };
+    r.onerror=function(){ toast("That file couldn't be read."); };
     r.readAsText(file);
   }
 
@@ -922,6 +1345,11 @@
   var mv=document.getElementById("masterVol"); fillSlider(mv);
   mv.addEventListener("input",function(e){ masterVolume=+e.target.value; fillSlider(mv); layers.forEach(applyVolume); saveSession(); });
   document.getElementById("btnSave").addEventListener("click",saveCurrent);
+  document.getElementById("btnShare").addEventListener("click",shareMix);
+  document.getElementById("btnWake").addEventListener("click",function(){
+    wakeWanted=!wakeWanted; syncWake(); saveSession();
+    toast(wakeWanted?"Screen will stay awake.":"Screen may sleep again.");
+  });
   document.getElementById("btnExport").addEventListener("click",exportMixes);
   document.getElementById("btnImport").addEventListener("click",function(){ document.getElementById("fileImport").click(); });
   document.getElementById("fileImport").addEventListener("change",function(e){ if(e.target.files[0]) importMixes(e.target.files[0]); e.target.value=""; });
@@ -958,8 +1386,11 @@
   document.body.classList.toggle("hidden-tab",document.hidden);
   fillSlider(tvol); fillSlider(tdim); applyFit();
   renderPresets(); renderMixes();
-  restoreSession();
-  refreshEmpty();
+  /* A shared link is an explicit request and wins over the stored session. */
+  if(!loadFromHash()) restoreSession();
+  syncWake();
+  refreshEmpty(); updateMediaSession();
+  window.addEventListener("hashchange",function(){ loadFromHash(); });
 
   /* Offline shell. Registered late so it never competes with the YouTube API
      for the initial load, and only over https/localhost where SW is allowed. */

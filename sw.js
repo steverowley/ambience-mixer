@@ -2,8 +2,8 @@
    The whole app is a single HTML file, so a cache-first shell gives full
    offline use of the UI, presets and saved mixes. Audio still needs the
    network — YouTube is not cacheable and must not be intercepted. */
-var CACHE = "ambience-v1";
-var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
+var CACHE = "ambience-v2";
+var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/fraunces-subset.woff2"];
 
 self.addEventListener("install", function (e) {
   e.waitUntil(
