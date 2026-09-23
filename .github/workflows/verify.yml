@@ -25,6 +25,12 @@ jobs:
       - name: Run verify.js
         run: node .dev/verify.js
 
+      # Measures the layer card's footer rows against the grid's 320px
+      # minimum width. Guards the regression where added controls overflowed
+      # the card and rendered over its neighbour.
+      - name: Layout fits
+        run: node .dev/layout.js
+
   assets:
     name: Static assets
     runs-on: ubuntu-latest

@@ -190,10 +190,18 @@
   input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--accent); outline-offset:2px}
   input[type=range]:focus-visible::-moz-range-thumb{outline:3px solid var(--accent); outline-offset:2px}
 
-  /* ---------- Layer footer ---------- */
-  .layer-foot{display:flex; align-items:center; gap:14px; margin-top:20px; padding-top:18px; border-top:1px solid var(--line-soft)}
+  /* ---------- Layer footer ----------
+     Two explicit rows, not one wrapping line. At the 320px minimum card
+     width a single row of Loop + Mute + Solo + Visualise + Remove overflows
+     the card and spills over its neighbour, so the grouping is structural:
+     row 1 is what the layer sounds like, row 2 is what to do with the card. */
+  .layer-foot{margin-top:20px; padding-top:18px; border-top:1px solid var(--line-soft);
+    display:flex; flex-direction:column; gap:12px}
+  .foot-row{display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap}
+  .foot-row .spacer{flex:1 1 auto; min-width:0}
   .toggle{display:inline-flex; align-items:center; gap:8px; font-size:11px; text-transform:uppercase;
-    letter-spacing:.09em; color:var(--text2); font-weight:600; cursor:pointer; user-select:none}
+    letter-spacing:.09em; color:var(--text2); font-weight:600; cursor:pointer; user-select:none;
+    white-space:nowrap}
   /* Visually hidden, but NOT display:none — that would drop the checkbox out of
      the tab order and out of the accessibility tree, making Loop mouse-only. */
   .toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
@@ -203,17 +211,29 @@
   .toggle input:checked + .sw{background:var(--accent)}
   .toggle input:checked + .sw::after{transform:translateX(16px)}
   .toggle input:focus-visible + .sw{outline:3px solid var(--accent); outline-offset:3px}
-  .remove{font-size:12px; color:var(--text2); background:transparent; border:none; padding:6px 8px}
-  .remove:hover{color:var(--warm); background:rgba(217,168,126,.1)}
+  .remove{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
+    color:var(--text2); background:transparent; border:1px solid transparent; padding:7px 11px;
+    border-radius:9px; white-space:nowrap}
+  .remove:hover{color:var(--warm); background:rgba(217,168,126,.12); border-color:rgba(217,168,126,.3)}
+  /* Chips, not bare text: with five controls in the footer, borderless labels
+     read as prose rather than as things you can press. */
   .tvbtn{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
-    color:var(--text2); background:transparent; border:none; padding:6px 8px}
-  .tvbtn:hover{color:var(--accent-glow); background:rgba(138,180,201,.1)}
-  .tvbtn.active{color:var(--accent-glow)}
-  .tvbtn.retry{color:var(--warm)}
-  .tvbtn.retry:hover{background:rgba(217,168,126,.12)}
+    color:var(--text2); background:transparent; border:1px solid var(--line-soft);
+    padding:7px 11px; border-radius:9px; white-space:nowrap}
+  .tvbtn:hover{color:var(--accent-glow); background:rgba(138,180,201,.1); border-color:rgba(138,180,201,.4)}
+  .tvbtn.active{color:var(--accent-glow); border-color:rgba(138,180,201,.55);
+    background:rgba(138,180,201,.14)}
+  .tvbtn.retry{color:var(--warm); border-color:rgba(217,168,126,.4)}
+  .tvbtn.retry:hover{background:rgba(217,168,126,.14); color:var(--warm)}
   .tvbtn[hidden]{display:none}
   /* Muted or silenced-by-solo: still there, clearly not contributing. */
   .layer.silent{opacity:.55}
+  /* The old "Keep awake" button never said whether it was on or off, or what
+     it would do when pressed. A switch with a stateful label reads as its own
+     status: "Screen may sleep" / "Screen staying on". */
+  .dock-toggle{color:var(--text2)}
+  .dock-toggle #wakeLabel{min-width:132px; display:inline-block}
+  .dock-toggle input:checked ~ #wakeLabel{color:var(--accent-glow)}
   #btnWake.active{border-color:rgba(138,180,201,.55); color:var(--accent-glow)}
 
   /* ---------- Theatre mode ----------
@@ -324,10 +344,18 @@
     .grid{grid-template-columns:1fr}
     .dock{gap:12px} .dock .mvol{width:92px}
     .brand .tag{display:none}
+    .dock-toggle #wakeLabel{min-width:0}
     .tbar{gap:10px; padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
     .tbar .tname{max-width:120px; font-size:14px}
     .tbar .trow input[type=range]{width:66px}
     .tbar .pill{padding:8px 13px; font-size:12px}
+  }
+  /* Narrow cards (and narrow phones): the footer rows stack rather than
+     letting a chip escape the card's padding. */
+  @media (max-width:380px){
+    .layer{padding:20px}
+    .foot-row{gap:6px}
+    .tvbtn,.remove{padding:7px 9px; letter-spacing:.06em}
   }
   @media (prefers-reduced-motion: reduce){
     .aurora::before,.brand .orb,.layer.playing::after{animation:none !important}
@@ -408,7 +436,10 @@
   <button class="primary" id="btnPlayAll">▶ Play all</button>
   <button id="btnStopAll">Pause all</button>
   <button id="btnClearAll">Clear all</button>
-  <button id="btnWake" aria-pressed="false" title="Stop the screen sleeping so mobile keeps playing">Keep awake</button>
+  <label class="toggle dock-toggle" title="Stops the screen sleeping, so audio keeps playing on mobile">
+    <input type="checkbox" id="btnWake"><span class="sw"></span>
+    <span id="wakeLabel">Screen may sleep</span>
+  </label>
   <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume"></div>
   <div class="spacer"></div>
   <div class="timer">
@@ -667,9 +698,9 @@
   function syncWake(){
     if(wakeWanted||theatreLayer) requestWake(); else releaseWake();
     var b=document.getElementById("btnWake");
-    if(b){ b.classList.toggle("active",wakeWanted);
-      b.setAttribute("aria-pressed",wakeWanted?"true":"false");
-      b.textContent=wakeWanted?"Screen on":"Keep awake"; }
+    if(b) b.checked=wakeWanted;
+    var lab=document.getElementById("wakeLabel");
+    if(lab) lab.textContent=wakeWanted?"Screen staying on":"Screen may sleep";
   }
 
   /* ---------- Theatre mode ----------
@@ -770,13 +801,18 @@
           '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Speed</span><b id="slab_'+L.uid+'"></b></div>'+
             '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'+
           '<div class="layer-foot">'+
-            '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
-            '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">Mute</button>'+
-            '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">Solo</button>'+
-            '<button class="tvbtn" id="tv_'+L.uid+'">Visualise</button>'+
-            '<div class="spacer"></div>'+
-            '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>'+
-            '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
+            '<div class="foot-row">'+
+              '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
+              '<div class="spacer"></div>'+
+              '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">Mute</button>'+
+              '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">Solo</button>'+
+            '</div>'+
+            '<div class="foot-row">'+
+              '<button class="tvbtn" id="tv_'+L.uid+'" aria-pressed="false">Visualise</button>'+
+              '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>'+
+              '<div class="spacer"></div>'+
+              '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
+            '</div>'+
           '</div>';
         grid.appendChild(el);
         var vol=el.querySelector("#vol_"+L.uid);
@@ -803,7 +839,9 @@
       document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×";
       document.getElementById("loop_"+L.uid).checked=L.loop;
       var tv=document.getElementById("tv_"+L.uid);
-      if(tv){ var on=(theatreLayer===L); tv.classList.toggle("active",on); tv.textContent=on?"Visualising":"Visualise"; }
+      if(tv){ var on=(theatreLayer===L); tv.classList.toggle("active",on);
+        tv.setAttribute("aria-pressed",on?"true":"false");
+        tv.textContent=on?"Visualising":"Visualise"; }
       var mb=document.getElementById("mute_"+L.uid);
       if(mb){ mb.classList.toggle("active",!!L.muted);
         mb.setAttribute("aria-pressed",L.muted?"true":"false");
@@ -814,6 +852,9 @@
         sb.textContent=sOn?"Soloed":"Solo"; }
       var rb=document.getElementById("retry_"+L.uid);
       if(rb) rb.hidden=!L.unavailable;
+      /* An unavailable layer has nothing to visualise, and showing both
+         chips plus Remove overflows a 320px card. Hide it while errored. */
+      if(tv) tv.hidden=!!L.unavailable;
       if(theatreLayer===L) tname.textContent=L.title;
       renderPlaying(L);
     });
@@ -1346,9 +1387,10 @@
   mv.addEventListener("input",function(e){ masterVolume=+e.target.value; fillSlider(mv); layers.forEach(applyVolume); saveSession(); });
   document.getElementById("btnSave").addEventListener("click",saveCurrent);
   document.getElementById("btnShare").addEventListener("click",shareMix);
-  document.getElementById("btnWake").addEventListener("click",function(){
-    wakeWanted=!wakeWanted; syncWake(); saveSession();
-    toast(wakeWanted?"Screen will stay awake.":"Screen may sleep again.");
+  document.getElementById("btnWake").addEventListener("change",function(e){
+    wakeWanted=e.target.checked; syncWake(); saveSession();
+    toast(wakeWanted?"Screen will stay on while this tab is open."
+                    :"Screen may sleep again.");
   });
   document.getElementById("btnExport").addEventListener("click",exportMixes);
   document.getElementById("btnImport").addEventListener("click",function(){ document.getElementById("fileImport").click(); });
