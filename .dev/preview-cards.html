@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>Ambience — card states preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* Fraunces is used for four short strings. Self-hosted as a 21KB subset so
+     it costs one same-origin request instead of a render-blocking
+     cross-origin stylesheet plus a font fetch. */
+  @font-face{
+    font-family:"Fraunces"; font-style:normal; font-weight:400;
+    font-display:swap; src:url("/fraunces-subset.woff2") format("woff2");
+  }
+  :root{
+    --bg:#0f1420;
+    --indigo:#3b4e86; --purple:#5a4b7c; --teal:#2a6e6a;
+    --glass:rgba(255,255,255,.05); --glass-hi:rgba(255,255,255,.08);
+    /* Cards no longer use backdrop-filter, so they carry a slightly heavier
+       fill of their own to keep contrast against the aurora. */
+    --raised-glass:rgba(27,34,52,.72);
+    --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+    --raised:#1a2133;
+    --text:#eaecf4; --text2:#a6adc4; --muted:#6c7594;
+    --accent:#8ab4c9; --accent-glow:#a9d0e0; --warm:#d9a87e;
+    --radius:20px; --radius-sm:13px;
+    --ease:cubic-bezier(.22,1,.36,1);
+    --ease-sym:cubic-bezier(.65,0,.35,1);
+    --shadow:0 8px 30px rgba(8,11,22,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--text); background:var(--bg); min-height:100vh;
+    -webkit-font-smoothing:antialiased; padding:0 0 148px; position:relative; overflow-x:hidden;
+  }
+  /* ---------- Aurora background ---------- */
+  .aurora{position:fixed; inset:0; z-index:-2; overflow:hidden; background:var(--bg);
+    background-image:
+      radial-gradient(45% 55% at 20% 28%, rgba(59,78,134,.55) 0%, transparent 70%),
+      radial-gradient(45% 55% at 80% 24%, rgba(42,110,106,.42) 0%, transparent 70%),
+      radial-gradient(52% 60% at 62% 80%, rgba(90,75,124,.46) 0%, transparent 72%),
+      radial-gradient(40% 50% at 28% 84%, rgba(59,78,134,.40) 0%, transparent 72%);
+  }
+  .aurora::before{content:""; position:absolute; inset:-25%;
+    background:conic-gradient(from 120deg at 50% 42%, #3b4e86, #2a6e6a, #5a4b7c, #45589a, #3b4e86);
+    filter:blur(95px) saturate(1.15); opacity:.28;
+    animation:drift 40s var(--ease-sym) infinite alternate; will-change:transform;
+  }
+  /* The aurora is invisible in a background tab, but the compositor keeps
+     paying for a blur(95px) every frame. This app is designed to sit in a
+     background tab for hours, so stop it while nobody is looking. */
+  body.hidden-tab .aurora::before,
+  body.hidden-tab .brand .orb,
+  body.hidden-tab .layer.playing::after{animation-play-state:paused}
+  @keyframes drift{
+    from{transform:translate3d(-4%,-2%,0) rotate(0deg) scale(1)}
+    to{transform:translate3d(4%,3%,0) rotate(7deg) scale(1.12)}
+  }
+  .grain{position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:170px 170px;
+  }
+
+  /* ---------- Header ---------- */
+  header{position:sticky; top:0; z-index:20; backdrop-filter:blur(14px);
+    background:rgba(15,20,32,.55); border-bottom:1px solid var(--line-soft);
+    padding:20px 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .orb{width:13px; height:13px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--accent-glow), var(--accent));
+    box-shadow:0 0 16px var(--accent); animation:breathe 7s var(--ease-sym) infinite;}
+  .brand h1{font-family:"Fraunces",serif; font-weight:400; font-size:23px; letter-spacing:-.01em; margin:0;}
+  .brand .tag{color:var(--text2); font-size:12.5px; margin-left:3px; align-self:center}
+  .spacer{flex:1}
+  @keyframes breathe{0%,100%{transform:scale(1); opacity:.75} 50%{transform:scale(1.12); opacity:1}}
+
+  /* ---------- Buttons ----------
+     No backdrop-filter here. It used to sit on the bare `button` selector,
+     which put a live backdrop sample on every preset, every dock button and
+     four controls per layer card — 20+ of them, all sampling an animated
+     blur(95px). Only the header and dock genuinely overlap scrolling
+     content, so only they keep it. */
+  button{font:inherit; cursor:pointer; color:var(--text); border:1px solid var(--line);
+    background:var(--glass); border-radius:var(--radius-sm);
+    padding:10px 18px; transition:transform .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease);}
+  button:hover{border-color:rgba(138,180,201,.5); background:var(--glass-hi)}
+  button:active{transform:scale(.97)}
+  button.primary{background:linear-gradient(135deg, rgba(138,180,201,.9), rgba(120,150,200,.85));
+    color:#0f1420; border-color:transparent; font-weight:600;}
+  button.primary:hover{filter:brightness(1.06); box-shadow:0 0 26px -6px var(--accent)}
+  .pill{border-radius:999px; padding:9px 18px; font-size:13px}
+  .ghost{background:transparent; border-color:var(--line-soft)}
+
+  .wrap{max-width:1060px; margin:0 auto; padding:36px 28px 0}
+
+  /* ---------- Add bar ---------- */
+  .addbar{display:flex; gap:12px; margin:4px 0 10px; flex-wrap:wrap}
+  .addbar input{flex:1; min-width:220px; color:var(--text); font:inherit; font-size:15px;
+    background:var(--glass); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:15px 18px; transition:border-color .25s var(--ease);}
+  .addbar input::placeholder{color:var(--muted)}
+  .addbar input:focus{outline:none; border-color:rgba(138,180,201,.55); box-shadow:0 0 0 3px rgba(138,180,201,.12)}
+
+  /* ---------- Section labels ---------- */
+  .label{font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.12em; font-weight:600; margin:40px 2px 16px;}
+
+  /* ---------- Presets ---------- */
+  .presets{display:flex; gap:12px; flex-wrap:wrap}
+  .preset{display:flex; flex-direction:column; gap:3px; text-align:left;
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:14px 18px; min-width:124px; max-width:264px;}
+  .preset:hover{border-color:rgba(138,180,201,.45); transform:translateY(-2px)}
+  .preset .n{font-weight:600; font-size:13.5px}
+  .preset .c{color:var(--text2); font-size:11.5px; line-height:1.45}
+
+  /* ---------- Layer grid ---------- */
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:22px}
+  .layer{position:relative; background:var(--raised-glass);
+    border:1px solid var(--line); border-radius:var(--radius); padding:24px;
+    box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
+    transition:border-color .35s var(--ease);}
+  .layer.playing{border-color:rgba(138,180,201,.4)}
+  /* The breathing glow lives on a pseudo-element and animates OPACITY only.
+     Animating box-shadow directly repaints every frame, for every playing
+     card, forever. Opacity is compositor-only — same look, no paint. */
+  .layer::after{content:""; position:absolute; inset:-1px; border-radius:inherit;
+    pointer-events:none; opacity:0; transition:opacity .35s var(--ease);
+    box-shadow:0 0 0 1px rgba(138,180,201,.35), 0 0 44px -5px rgba(138,180,201,.45);}
+  .layer.playing::after{opacity:1; animation:cardbreathe 7s var(--ease-sym) infinite}
+  .layer.gone{border-color:rgba(217,168,126,.35)}
+  @keyframes cardbreathe{0%,100%{opacity:.65} 50%{opacity:1}}
+  .layer-head{display:flex; gap:16px; align-items:center}
+  .thumb{width:66px; height:66px; border-radius:15px; overflow:hidden; flex-shrink:0; background:#000;
+    border:1px solid var(--line); position:relative;}
+  .thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%; width:118px; height:66px; transform:translate(-50%,-50%); border:0;}
+  .meta{flex:1; min-width:0}
+  .title{font-weight:600; font-size:14.5px; line-height:1.3; margin:0 0 4px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+  .status{font-size:11.5px; color:var(--muted)}
+  .status .live{color:var(--accent-glow)}
+  .status .gone{color:var(--warm)}
+  .playbtn{flex-shrink:0; width:46px; height:46px; border-radius:50%; padding:0; font-size:16px;
+    display:flex; align-items:center; justify-content:center; background:var(--glass-hi);
+    border:1px solid var(--line);}
+  .layer.playing .playbtn{background:radial-gradient(circle at 35% 30%, rgba(169,208,224,.95), rgba(138,180,201,.9));
+    color:#0f1420; border-color:transparent; box-shadow:0 0 22px -4px var(--accent);}
+
+  .ctl{margin-top:20px}
+  .ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px}
+  .ctl .lab span{font-size:10.5px; text-transform:uppercase; letter-spacing:.11em; color:var(--text2); font-weight:600}
+  .ctl .lab b{color:var(--text); font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums}
+
+  /* ---------- Sliders ---------- */
+  input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:100%; height:22px;
+    background:transparent; cursor:pointer;}
+  input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:999px;
+    background:linear-gradient(var(--accent),var(--accent)) 0/var(--val) 100% no-repeat, rgba(255,255,255,.13);}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:17px; height:17px;
+    margin-top:-5.5px; border-radius:50%; background:#fff;
+    box-shadow:0 1px 5px rgba(8,11,22,.5), inset 0 1px 0 rgba(255,255,255,.9);
+    transition:transform .18s var(--ease);}
+  input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.18)}
+  input[type=range]:active::-webkit-slider-thumb{transform:scale(.96)}
+  input[type=range]::-moz-range-track{height:6px; border-radius:999px; background:rgba(255,255,255,.13)}
+  input[type=range]::-moz-range-progress{height:6px; border-radius:999px; background:var(--accent)}
+  input[type=range]::-moz-range-thumb{width:17px; height:17px; border:none; border-radius:50%; background:#fff;
+    box-shadow:0 1px 5px rgba(8,11,22,.5);}
+  input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--accent); outline-offset:2px}
+  input[type=range]:focus-visible::-moz-range-thumb{outline:3px solid var(--accent); outline-offset:2px}
+
+  /* ---------- Layer footer ----------
+     Two explicit rows, not one wrapping line. At the 320px minimum card
+     width a single row of Loop + Mute + Solo + Visualise + Remove overflows
+     the card and spills over its neighbour, so the grouping is structural:
+     row 1 is what the layer sounds like, row 2 is what to do with the card. */
+  .layer-foot{margin-top:20px; padding-top:18px; border-top:1px solid var(--line-soft);
+    display:flex; flex-direction:column; gap:12px}
+  .foot-row{display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap}
+  .foot-row .spacer{flex:1 1 auto; min-width:0}
+  .toggle{display:inline-flex; align-items:center; gap:8px; font-size:11px; text-transform:uppercase;
+    letter-spacing:.09em; color:var(--text2); font-weight:600; cursor:pointer; user-select:none;
+    white-space:nowrap}
+  /* Visually hidden, but NOT display:none — that would drop the checkbox out of
+     the tab order and out of the accessibility tree, making Loop mouse-only. */
+  .toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+    border:0; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+  .toggle .sw{width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,.14); position:relative; transition:background .25s var(--ease)}
+  .toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .25s var(--ease)}
+  .toggle input:checked + .sw{background:var(--accent)}
+  .toggle input:checked + .sw::after{transform:translateX(16px)}
+  .toggle input:focus-visible + .sw{outline:3px solid var(--accent); outline-offset:3px}
+  .remove{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
+    color:var(--text2); background:transparent; border:1px solid transparent; padding:7px 11px;
+    border-radius:9px; white-space:nowrap}
+  .remove:hover{color:var(--warm); background:rgba(217,168,126,.12); border-color:rgba(217,168,126,.3)}
+  /* Chips, not bare text: with five controls in the footer, borderless labels
+     read as prose rather than as things you can press. */
+  .tvbtn{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
+    color:var(--text2); background:transparent; border:1px solid var(--line-soft);
+    padding:7px 11px; border-radius:9px; white-space:nowrap}
+  .tvbtn:hover{color:var(--accent-glow); background:rgba(138,180,201,.1); border-color:rgba(138,180,201,.4)}
+  .tvbtn.active{color:var(--accent-glow); border-color:rgba(138,180,201,.55);
+    background:rgba(138,180,201,.14)}
+  .tvbtn.retry{color:var(--warm); border-color:rgba(217,168,126,.4)}
+  .tvbtn.retry:hover{background:rgba(217,168,126,.14); color:var(--warm)}
+  .tvbtn[hidden]{display:none}
+  /* Muted or silenced-by-solo: still there, clearly not contributing. */
+  .layer.silent{opacity:.55}
+  /* The old "Keep awake" button never said whether it was on or off, or what
+     it would do when pressed. A switch with a stateful label reads as its own
+     status: "Screen may sleep" / "Screen staying on". */
+  .dock-toggle{color:var(--text2)}
+  .dock-toggle #wakeLabel{min-width:132px; display:inline-block}
+  .dock-toggle input:checked ~ #wakeLabel{color:var(--accent-glow)}
+  #btnWake.active{border-color:rgba(138,180,201,.55); color:var(--accent-glow)}
+
+  /* ---------- Theatre mode ----------
+     NOTE: any backdrop-filter/filter/transform on .layer would make it the
+     containing block for a position:fixed descendant, sizing the "fullscreen"
+     video to the card instead of the viewport. The card no longer sets one,
+     but keep these neutralised in case one comes back. */
+  .layer.is-theatre{backdrop-filter:none; filter:none; border-color:rgba(138,180,201,.55)}
+  .layer.is-theatre::after{display:none}
+  .thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none; border-radius:0; z-index:40; background:#000}
+  /* Fill: crop to cover the viewport. Costs decode area — on a portrait phone the
+     iframe ends up ~4x the screen width, so YouTube serves a much larger stream. */
+  .thumb.theatre .yt, .thumb.theatre > iframe{width:max(100vw,177.78vh); height:max(100vh,56.25vw)}
+  /* Fit: letterbox. The iframe never exceeds the screen, so YouTube serves a
+     stream sized to the device. Much lighter, and the default in portrait. */
+  .thumb.theatre.fit .yt, .thumb.theatre.fit > iframe{width:min(100vw,177.78vh); height:min(100vh,56.25vw)}
+  .shade{position:fixed; inset:0; z-index:41; background:#000; opacity:0; display:none; pointer-events:none;
+    transition:opacity .4s var(--ease)}
+  .shade.on{display:block}
+  .catch{position:fixed; inset:0; z-index:42; display:none; cursor:pointer}
+  .catch.on{display:block}
+  .tbar{position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; gap:18px; align-items:center; flex-wrap:wrap;
+    padding:22px 28px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, rgba(9,12,20,.88), rgba(9,12,20,0));
+    opacity:1; transition:opacity .5s var(--ease)}
+  .tbar.on{display:flex}
+  .tbar.idle{opacity:0; pointer-events:none}
+  .tbar .tname{font-family:"Fraunces",serif; font-size:16px; max-width:220px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .tbar .trow{display:flex; align-items:center; gap:10px}
+  .tbar .trow span{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:600}
+  .tbar .trow input[type=range]{width:104px}
+  body.theatre-on{overflow:hidden}
+
+  /* ---------- Theatre performance ----------
+     Everything below is invisible behind the opaque video, but the compositor
+     still pays for it every frame. Switching it off is free visually. */
+  body.theatre-on .aurora,
+  body.theatre-on .grain,
+  body.theatre-on header,
+  body.theatre-on .dock{display:none}
+  body.theatre-on .layer{box-shadow:none}
+  body.theatre-on .layer::after{display:none}
+
+  /* ---------- Resume bar ---------- */
+  .resume{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:22px;
+    background:var(--raised-glass); border:1px solid rgba(138,180,201,.3);
+    border-radius:var(--radius-sm); padding:14px 18px; font-size:13.5px; color:var(--text2)}
+  .resume b{color:var(--text); font-weight:600}
+  .resume[hidden]{display:none}
+
+  /* ---------- Empty state ---------- */
+  .empty{text-align:center; color:var(--text2); padding:66px 30px;
+    border:1px dashed var(--line); border-radius:var(--radius); background:rgba(255,255,255,.02)}
+  .empty h3{font-family:"Fraunces",serif; font-weight:400; font-size:21px; color:var(--text); margin:0 0 8px}
+  .empty p{margin:0; font-size:14px}
+
+  /* ---------- Saved mixes ---------- */
+  .mixes{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .mix{display:flex; align-items:center; gap:2px; background:var(--glass); border:1px solid var(--line);
+    border-radius:999px; padding:0 6px 0 15px}
+  .mix .name{padding:9px 4px; font-size:13px; font-weight:500; cursor:pointer}
+  .mix .name:hover{color:var(--accent-glow)}
+  .mix .x{background:transparent; border:none; color:var(--muted); padding:6px; font-size:13px; border-radius:50%}
+  .mix .x:hover{color:var(--warm)}
+
+  /* ---------- Dock ---------- */
+  .dock{position:fixed; left:0; right:0; bottom:0; z-index:30; backdrop-filter:blur(18px);
+    background:rgba(18,23,38,.72); border-top:1px solid var(--line);
+    padding:16px 28px calc(16px + env(safe-area-inset-bottom)); display:flex; gap:18px; align-items:center; flex-wrap:wrap;}
+  .dock .mrow{display:flex; align-items:center; gap:10px}
+  .dock .mrow span{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--text2); font-weight:600}
+  .dock .mvol{width:120px}
+  .timer{display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--text2)}
+  .timer select{color:var(--text); font:inherit; font-size:13px; background:var(--raised);
+    border:1px solid var(--line); border-radius:10px; padding:8px 10px}
+  .timer .left{font-variant-numeric:tabular-nums; color:var(--accent-glow); min-width:38px}
+
+  .hint{font-size:12px; color:var(--muted); margin:26px 2px 0; line-height:1.6; max-width:680px}
+  .sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+
+  /* ---------- Toast ---------- */
+  .toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
+    background:var(--raised); border:1px solid rgba(138,180,201,.5); color:var(--text);
+    padding:11px 18px; border-radius:13px; font-size:13.5px; box-shadow:var(--shadow);
+    pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:50}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  /* ---------- Dialog ---------- */
+  .dlg{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+    padding:24px; background:rgba(8,11,22,.62); backdrop-filter:blur(6px)}
+  .dlg[hidden]{display:none}
+  .dlg-card{width:100%; max-width:400px; background:var(--raised); border:1px solid var(--line);
+    border-radius:var(--radius); padding:26px; box-shadow:var(--shadow)}
+  .dlg-card h2{font-family:"Fraunces",serif; font-weight:400; font-size:20px; margin:0 0 10px}
+  .dlg-card p{margin:0 0 16px; font-size:13.5px; color:var(--text2); line-height:1.55}
+  .dlg-card p[hidden]{display:none}
+  .dlg-card input{width:100%; color:var(--text); font:inherit; font-size:15px;
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:13px 15px; margin-bottom:18px}
+  .dlg-card input[hidden]{display:none}
+  .dlg-card input:focus{outline:none; border-color:rgba(138,180,201,.55); box-shadow:0 0 0 3px rgba(138,180,201,.12)}
+  .dlg-row{display:flex; gap:10px; justify-content:flex-end}
+  body.dialog-on{overflow:hidden}
+
+  @media (max-width:520px){
+    .grid{grid-template-columns:1fr}
+    .dock{gap:12px} .dock .mvol{width:92px}
+    .brand .tag{display:none}
+    .dock-toggle #wakeLabel{min-width:0}
+    .tbar{gap:10px; padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+    .tbar .tname{max-width:120px; font-size:14px}
+    .tbar .trow input[type=range]{width:66px}
+    .tbar .pill{padding:8px 13px; font-size:12px}
+  }
+  /* Narrow cards (and narrow phones): the footer rows stack rather than
+     letting a chip escape the card's padding. */
+  @media (max-width:380px){
+    .layer{padding:20px}
+    .foot-row{gap:6px}
+    .tvbtn,.remove{padding:7px 9px; letter-spacing:.06em}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .aurora::before,.brand .orb,.layer.playing::after{animation:none !important}
+    *,*::before,*::after{transition-duration:.01ms !important}
+  }
+
+  body{padding:32px}
+  .note{max-width:900px; margin:0 auto 28px; color:var(--text2); font-size:13.5px; line-height:1.6}
+  .note h1{font-family:"Fraunces",serif; font-weight:400; color:var(--text); font-size:24px; margin:0 0 8px}
+  .cases{max-width:900px; margin:0 auto; display:flex; flex-wrap:wrap; gap:26px}
+  .case{width:320px}
+  .case > .cap{font-size:11px; text-transform:uppercase; letter-spacing:.12em;
+    color:var(--accent); font-weight:600; margin:0 0 10px}
+  .ruler{max-width:900px; margin:0 auto 26px; font-size:12px; color:var(--muted)}
+</style></head>
+<body>
+<div class="aurora"></div><div class="grain"></div>
+<div class="note">
+  <h1>Layer card — every footer state</h1>
+  <p>Each card is fixed at <b>320px</b>, the narrowest the grid
+  (<code>minmax(320px,1fr)</code>) will ever render. If nothing overflows here,
+  nothing overflows in the app. Styles are lifted verbatim from
+  <code>index.html</code>.</p>
+</div>
+<div class="cases">
+<div class="case"><p class="cap">Playing</p>
+<div class="layer playing">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">Rain On Window with Thunder Sounds — 10 Hours</p>
+      <div class="status"><span class="live">● playing</span> · 1.00× · 76%</div>
+    </div>
+    <button class="playbtn">⏸</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>76%</b></div>
+    <input type="range" min="0" max="100" value="76" style="--val:76%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn ">Visualise</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Paused</p>
+<div class="layer">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">The Wind in the Trees ( 10 Hours of Natural White Noise )</p>
+      <div class="status">paused · 0.75× · 42%</div>
+    </div>
+    <button class="playbtn">▶</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>42%</b></div>
+    <input type="range" min="0" max="100" value="42" style="--val:42%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>0.75×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="0.75"
+      style="--val:29%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn ">Visualise</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Muted</p>
+<div class="layer playing silent">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">10 Hours Grandfather Clock Ticking Sounds For Deep Sleep</p>
+      <div class="status"><span class="live">● playing</span> · 1.00× · 14% · muted</div>
+    </div>
+    <button class="playbtn">⏸</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>14%</b></div>
+    <input type="range" min="0" max="100" value="14" style="--val:14%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn active">Muted</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn ">Visualise</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Soloed</p>
+<div class="layer playing">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">Warm Cozy Fireplace 🔥 10 Hours • No Ads • No Music</p>
+      <div class="status"><span class="live">● playing</span> · 1.00× · 72%</div>
+    </div>
+    <button class="playbtn">⏸</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>72%</b></div>
+    <input type="range" min="0" max="100" value="72" style="--val:72%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn active">Soloed</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn ">Visualise</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Visualising</p>
+<div class="layer playing">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">UNDERWATER Ambience 10 Hours | DEEP SEA ASMR</p>
+      <div class="status"><span class="live">● playing</span> · 1.00× · 70%</div>
+    </div>
+    <button class="playbtn">⏸</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>70%</b></div>
+    <input type="range" min="0" max="100" value="70" style="--val:70%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn active">Visualising</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Unavailable (Retry, no Visualise)</p>
+<div class="layer gone">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">Medieval Fantasy Tavern Ambience No Music</p>
+      <div class="status"><span class="gone">The owner has turned off playback on other sites.</span></div>
+    </div>
+    <button class="playbtn">▶</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>30%</b></div>
+    <input type="range" min="0" max="100" value="30" style="--val:30%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      
+      <button class="tvbtn retry">Retry</button>
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+<div class="case"><p class="cap">Silenced by another layer's solo</p>
+<div class="layer playing silent">
+  <div class="layer-head">
+    <div class="thumb"></div>
+    <div class="meta">
+      <p class="title">Relaxing Jazz Instrumental in Cozy Coffee Shop</p>
+      <div class="status"><span class="live">● playing</span> · 1.00× · 30% · silenced by solo</div>
+    </div>
+    <button class="playbtn">⏸</button>
+  </div>
+  <div class="ctl"><div class="lab"><span>Volume</span><b>30%</b></div>
+    <input type="range" min="0" max="100" value="30" style="--val:30%"></div>
+  <div class="ctl"><div class="lab"><span>Speed</span><b>1.00×</b></div>
+    <input type="range" min="0.25" max="2" step="0.25" value="1"
+      style="--val:43%"></div>
+  <div class="layer-foot">
+    <div class="foot-row">
+      <label class="toggle"><input type="checkbox" checked><span class="sw"></span>Loop</label>
+      <div class="spacer"></div>
+      <button class="tvbtn ">Mute</button>
+      <button class="tvbtn ">Solo</button>
+    </div>
+    <div class="foot-row">
+      <button class="tvbtn ">Visualise</button>
+      
+      <div class="spacer"></div>
+      <button class="remove">Remove</button>
+    </div>
+  </div>
+</div></div>
+</div>
+</body></html>
