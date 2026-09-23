@@ -1,21 +1,65 @@
-MIT License
+Copyright © 2026 Stephen Rowley. All rights reserved.
 
-Copyright (c) 2026 Stephen Rowley
+PROPRIETARY SOFTWARE — ALL RIGHTS RESERVED
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This software and its source code, design, assets and accompanying
+documentation (together, the "Software") are the exclusive property of
+Stephen Rowley (the "Owner") and are protected by copyright law and
+international treaties.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+PERMITTED
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+  1. You may view and read the Software where the Owner has made it
+     publicly visible, for the sole purpose of personal reference and
+     evaluation.
+
+NOT PERMITTED
+
+Except with the Owner's prior express written permission, you may NOT:
+
+  2. use, run, host, deploy or operate the Software, in whole or in part,
+     for any purpose, whether commercial or non-commercial;
+  3. copy, reproduce, download or store the Software other than transient
+     copies made automatically by a web browser while viewing it;
+  4. modify, adapt, translate or create derivative works based on the
+     Software;
+  5. distribute, publish, sublicense, sell, rent, lease or otherwise
+     transfer the Software or any rights in it;
+  6. reverse engineer, decompile or disassemble any compiled or minified
+     portion of the Software;
+  7. remove, obscure or alter any copyright, trademark or other
+     proprietary notice contained in the Software;
+  8. use the Software, or any part of it, as training data or input for
+     any machine learning or artificial intelligence system or model.
+
+No licence or other right in the Software is granted to you, whether by
+implication, estoppel or otherwise, except as expressly stated above. All
+rights not expressly granted are reserved by the Owner.
+
+Public visibility of this repository does not constitute a grant of any
+licence, nor does it place the Software in the public domain.
+
+THIRD-PARTY COMPONENTS
+
+The Software integrates third-party services and resources that remain
+subject to their own terms and licences, including the YouTube IFrame
+Player API (governed by the YouTube Terms of Service and Google's
+policies) and webfonts supplied by Google Fonts. Audio and video content
+played through the Software belongs to its respective owners; nothing in
+the Software grants any right in that content. Nothing in this notice
+purports to license those third-party materials.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+NO EVENT SHALL THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+ENQUIRIES
+
+For permission to use the Software, or for licensing enquiries, contact
+the Owner through https://github.com/steverowley.

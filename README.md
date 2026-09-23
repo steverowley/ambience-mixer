@@ -51,6 +51,26 @@ Vercel serves `index.html` as a static file — no framework, no config, no buil
 - A preset replaces what is currently playing; save your own blend first if you
   want to keep it.
 
+## Development
+
+No build step. The app is one self-contained `index.html`.
+
+```bash
+python -m http.server 8000      # then open http://localhost:8000
+node .dev/verify.js             # run the test suite
+python .dev/subset_font.py      # regenerate the Fraunces subset
+python .dev/make_icons.py       # regenerate the PWA icon set
+```
+
+`.dev/verify.js` executes the app's real IIFE in a stub DOM and asserts on
+behaviour (volume maths, share round-trip, import validation, mute/solo, XSS
+resistance) as well as the source itself. It has no dependencies — plain Node.
+
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+**Copyright © 2026 Stephen Rowley. All rights reserved.**
+
+This is proprietary software, not open source. The code is publicly visible
+for reference only — viewing it grants you no licence to use, copy, modify,
+host or distribute it. See [LICENSE](LICENSE) for the full terms, and contact
+the owner for any licensing enquiry.
