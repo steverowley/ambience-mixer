@@ -4,15 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0f1420">
+<meta name="description" content="Layer YouTube videos into ambient soundscapes — per-layer volume, speed and loop, curated presets, saved mixes and a sleep timer.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ambience">
 <title>Ambience — a calm soundscape mixer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#0f1420;
     --indigo:#3b4e86; --purple:#5a4b7c; --teal:#2a6e6a;
     --glass:rgba(255,255,255,.05); --glass-hi:rgba(255,255,255,.08);
+    /* Cards no longer use backdrop-filter, so they carry a slightly heavier
+       fill of their own to keep contrast against the aurora. */
+    --raised-glass:rgba(27,34,52,.72);
     --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
     --raised:#1a2133;
     --text:#eaecf4; --text2:#a6adc4; --muted:#6c7594;
@@ -42,6 +53,12 @@
     filter:blur(95px) saturate(1.15); opacity:.28;
     animation:drift 40s var(--ease-sym) infinite alternate; will-change:transform;
   }
+  /* The aurora is invisible in a background tab, but the compositor keeps
+     paying for a blur(95px) every frame. This app is designed to sit in a
+     background tab for hours, so stop it while nobody is looking. */
+  body.hidden-tab .aurora::before,
+  body.hidden-tab .brand .orb,
+  body.hidden-tab .layer.playing::after{animation-play-state:paused}
   @keyframes drift{
     from{transform:translate3d(-4%,-2%,0) rotate(0deg) scale(1)}
     to{transform:translate3d(4%,3%,0) rotate(7deg) scale(1.12)}
@@ -64,9 +81,14 @@
   .spacer{flex:1}
   @keyframes breathe{0%,100%{transform:scale(1); opacity:.75} 50%{transform:scale(1.12); opacity:1}}
 
-  /* ---------- Buttons ---------- */
+  /* ---------- Buttons ----------
+     No backdrop-filter here. It used to sit on the bare `button` selector,
+     which put a live backdrop sample on every preset, every dock button and
+     four controls per layer card — 20+ of them, all sampling an animated
+     blur(95px). Only the header and dock genuinely overlap scrolling
+     content, so only they keep it. */
   button{font:inherit; cursor:pointer; color:var(--text); border:1px solid var(--line);
-    background:var(--glass); backdrop-filter:blur(8px); border-radius:var(--radius-sm);
+    background:var(--glass); border-radius:var(--radius-sm);
     padding:10px 18px; transition:transform .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease);}
   button:hover{border-color:rgba(138,180,201,.5); background:var(--glass-hi)}
   button:active{transform:scale(.97)}
@@ -81,7 +103,7 @@
   /* ---------- Add bar ---------- */
   .addbar{display:flex; gap:12px; margin:4px 0 10px; flex-wrap:wrap}
   .addbar input{flex:1; min-width:220px; color:var(--text); font:inherit; font-size:15px;
-    background:var(--glass); backdrop-filter:blur(10px); border:1px solid var(--line);
+    background:var(--glass); border:1px solid var(--line);
     border-radius:var(--radius-sm); padding:15px 18px; transition:border-color .25s var(--ease);}
   .addbar input::placeholder{color:var(--muted)}
   .addbar input:focus{outline:none; border-color:rgba(138,180,201,.55); box-shadow:0 0 0 3px rgba(138,180,201,.12)}
@@ -93,25 +115,27 @@
   .presets{display:flex; gap:12px; flex-wrap:wrap}
   .preset{display:flex; flex-direction:column; gap:3px; text-align:left;
     background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:14px 18px; min-width:124px; max-width:264px; backdrop-filter:blur(10px);}
+    padding:14px 18px; min-width:124px; max-width:264px;}
   .preset:hover{border-color:rgba(138,180,201,.45); transform:translateY(-2px)}
   .preset .n{font-weight:600; font-size:13.5px}
   .preset .c{color:var(--text2); font-size:11.5px; line-height:1.45}
 
   /* ---------- Layer grid ---------- */
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:22px}
-  .layer{position:relative; background:var(--glass); backdrop-filter:blur(20px) saturate(140%);
+  .layer{position:relative; background:var(--raised-glass);
     border:1px solid var(--line); border-radius:var(--radius); padding:24px;
     box-shadow:var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
-    transition:border-color .35s var(--ease), box-shadow .35s var(--ease);}
-  .layer.playing{border-color:rgba(138,180,201,.4);
-    box-shadow:0 0 0 1px rgba(138,180,201,.35), 0 0 40px -6px rgba(138,180,201,.4), var(--shadow);
-    animation:cardbreathe 7s var(--ease-sym) infinite;}
+    transition:border-color .35s var(--ease);}
+  .layer.playing{border-color:rgba(138,180,201,.4)}
+  /* The breathing glow lives on a pseudo-element and animates OPACITY only.
+     Animating box-shadow directly repaints every frame, for every playing
+     card, forever. Opacity is compositor-only — same look, no paint. */
+  .layer::after{content:""; position:absolute; inset:-1px; border-radius:inherit;
+    pointer-events:none; opacity:0; transition:opacity .35s var(--ease);
+    box-shadow:0 0 0 1px rgba(138,180,201,.35), 0 0 44px -5px rgba(138,180,201,.45);}
+  .layer.playing::after{opacity:1; animation:cardbreathe 7s var(--ease-sym) infinite}
   .layer.gone{border-color:rgba(217,168,126,.35)}
-  @keyframes cardbreathe{
-    0%,100%{box-shadow:0 0 0 1px rgba(138,180,201,.28), 0 0 30px -8px rgba(138,180,201,.30), var(--shadow)}
-    50%{box-shadow:0 0 0 1px rgba(138,180,201,.42), 0 0 48px -4px rgba(138,180,201,.5), var(--shadow)}
-  }
+  @keyframes cardbreathe{0%,100%{opacity:.65} 50%{opacity:1}}
   .layer-head{display:flex; gap:16px; align-items:center}
   .thumb{width:66px; height:66px; border-radius:15px; overflow:hidden; flex-shrink:0; background:#000;
     border:1px solid var(--line); position:relative;}
@@ -155,11 +179,15 @@
   .layer-foot{display:flex; align-items:center; gap:14px; margin-top:20px; padding-top:18px; border-top:1px solid var(--line-soft)}
   .toggle{display:inline-flex; align-items:center; gap:8px; font-size:11px; text-transform:uppercase;
     letter-spacing:.09em; color:var(--text2); font-weight:600; cursor:pointer; user-select:none}
-  .toggle input{display:none}
+  /* Visually hidden, but NOT display:none — that would drop the checkbox out of
+     the tab order and out of the accessibility tree, making Loop mouse-only. */
+  .toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+    border:0; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
   .toggle .sw{width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,.14); position:relative; transition:background .25s var(--ease)}
   .toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .25s var(--ease)}
   .toggle input:checked + .sw{background:var(--accent)}
   .toggle input:checked + .sw::after{transform:translateX(16px)}
+  .toggle input:focus-visible + .sw{outline:3px solid var(--accent); outline-offset:3px}
   .remove{font-size:12px; color:var(--text2); background:transparent; border:none; padding:6px 8px}
   .remove:hover{color:var(--warm); background:rgba(217,168,126,.1)}
   .tvbtn{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
@@ -168,10 +196,12 @@
   .tvbtn.active{color:var(--accent-glow)}
 
   /* ---------- Theatre mode ----------
-     NOTE: .layer sets backdrop-filter, which would make it the containing block
-     for any position:fixed descendant. It must be switched off while a layer is
-     the visualiser, or the "fullscreen" video sizes itself to the card instead. */
+     NOTE: any backdrop-filter/filter/transform on .layer would make it the
+     containing block for a position:fixed descendant, sizing the "fullscreen"
+     video to the card instead of the viewport. The card no longer sets one,
+     but keep these neutralised in case one comes back. */
   .layer.is-theatre{backdrop-filter:none; filter:none; border-color:rgba(138,180,201,.55)}
+  .layer.is-theatre::after{display:none}
   .thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none; border-radius:0; z-index:40; background:#000}
   /* Fill: crop to cover the viewport. Costs decode area — on a portrait phone the
      iframe ends up ~4x the screen width, so YouTube serves a much larger stream. */
@@ -204,11 +234,15 @@
   body.theatre-on .grain,
   body.theatre-on header,
   body.theatre-on .dock{display:none}
-  body.theatre-on .layer{backdrop-filter:none; box-shadow:none; animation:none}
-  body.theatre-on .preset,
-  body.theatre-on .mix,
-  body.theatre-on .addbar input,
-  body.theatre-on button{backdrop-filter:none}
+  body.theatre-on .layer{box-shadow:none}
+  body.theatre-on .layer::after{display:none}
+
+  /* ---------- Resume bar ---------- */
+  .resume{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:22px;
+    background:var(--raised-glass); border:1px solid rgba(138,180,201,.3);
+    border-radius:var(--radius-sm); padding:14px 18px; font-size:13.5px; color:var(--text2)}
+  .resume b{color:var(--text); font-weight:600}
+  .resume[hidden]{display:none}
 
   /* ---------- Empty state ---------- */
   .empty{text-align:center; color:var(--text2); padding:66px 30px;
@@ -219,7 +253,7 @@
   /* ---------- Saved mixes ---------- */
   .mixes{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
   .mix{display:flex; align-items:center; gap:2px; background:var(--glass); border:1px solid var(--line);
-    border-radius:999px; padding:0 6px 0 15px; backdrop-filter:blur(10px)}
+    border-radius:999px; padding:0 6px 0 15px}
   .mix .name{padding:9px 4px; font-size:13px; font-weight:500; cursor:pointer}
   .mix .name:hover{color:var(--accent-glow)}
   .mix .x{background:transparent; border:none; color:var(--muted); padding:6px; font-size:13px; border-radius:50%}
@@ -238,6 +272,8 @@
   .timer .left{font-variant-numeric:tabular-nums; color:var(--accent-glow); min-width:38px}
 
   .hint{font-size:12px; color:var(--muted); margin:26px 2px 0; line-height:1.6; max-width:680px}
+  .sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+    clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
 
   /* ---------- Toast ---------- */
   .toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
@@ -256,7 +292,7 @@
     .tbar .pill{padding:8px 13px; font-size:12px}
   }
   @media (prefers-reduced-motion: reduce){
-    .aurora::before,.brand .orb,.layer.playing{animation:none !important}
+    .aurora::before,.brand .orb,.layer.playing::after{animation:none !important}
     *,*::before,*::after{transition-duration:.01ms !important}
   }
 </style>
@@ -279,11 +315,18 @@
 
 <div class="wrap">
   <div class="addbar">
+    <label for="urlInput" class="sr-only">YouTube link or video ID</label>
     <input id="urlInput" type="text" placeholder="Paste a YouTube link or video ID…" autocomplete="off">
     <button class="primary" id="btnAdd">Add layer</button>
   </div>
 
   <div id="grid" class="grid"></div>
+  <div id="resume" class="resume" hidden>
+    <span>Your last soundscape is ready — <b id="resumeCount"></b>, paused.</span>
+    <div class="spacer"></div>
+    <button class="pill primary" id="btnResume">Resume</button>
+    <button class="pill ghost" id="btnDiscard">Start fresh</button>
+  </div>
   <div id="empty" class="empty">
     <h3>A quiet canvas</h3>
     <p>Tap a starter preset below, or paste any YouTube link to begin your soundscape.</p>
@@ -299,12 +342,14 @@
   </div>
 
   <p class="hint" id="hint">
-    Add this to your phone's home screen for an app-like feel. Audio begins after your first tap.
-    Speed steps in 0.25× increments — that's the finest YouTube's player allows. Mixing several videos
-    works best with the screen on; Android may pause background audio when the screen sleeps.
+    Add this to your phone's home screen and it runs as its own app, offline.
+    Audio begins after your first tap. Speed steps in 0.25× increments — that's the finest
+    YouTube's player allows. Mixing several videos works best with the screen on; Android may
+    pause background audio when the screen sleeps.
     Tap <b>Visualise</b> on any layer to fill the screen with it. If playback stutters, switch the
     visualiser to <b>Fit</b> — it letterboxes instead of cropping, which is far lighter on the phone.
     A preset replaces what's playing; save your own blend first if you want to keep it.
+    Your current blend is remembered between visits.
   </p>
 </div>
 
@@ -313,8 +358,8 @@
 <div class="tbar" id="tbar">
   <button class="playbtn" id="tplay" style="width:42px; height:42px">▶</button>
   <span class="tname" id="tname"></span>
-  <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60"></div>
-  <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35"></div>
+  <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60" aria-label="Visualiser layer volume"></div>
+  <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35" aria-label="Screen dim level"></div>
   <div class="spacer"></div>
   <button class="pill ghost" id="tfit">Fit</button>
   <button class="pill ghost" id="texit">Exit ✕</button>
@@ -324,11 +369,11 @@
   <button class="primary" id="btnPlayAll">▶ Play all</button>
   <button id="btnStopAll">Pause all</button>
   <button id="btnClearAll">Clear all</button>
-  <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100"></div>
+  <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume"></div>
   <div class="spacer"></div>
   <div class="timer">
     <span>Sleep</span>
-    <select id="sleepSel">
+    <select id="sleepSel" aria-label="Sleep timer">
       <option value="0">Off</option>
       <option value="15">15 min</option>
       <option value="30">30 min</option>
@@ -348,14 +393,22 @@
 (function(){
   "use strict";
   var LS_KEY="ambience.mixes.v1";
+  var SESSION_KEY="ambience.session.v1";
+  var pendingTheatre=null;
   var layers=[], seq=0, apiReady=false, pendingCreates=[], masterVolume=100;
   var sleepTimer=null, sleepEndsAt=0, sleepTick=null;
   var DEFAULT_RATES=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
   var theatreLayer=null, dimLevel=0.35, idleT=null, wakeLock=null;
+  var fadeFactor=1;
+  var fitOverridden=false;
   var fitMode=(window.innerHeight>window.innerWidth);
 
   window.onYouTubeIframeAPIReady=function(){ apiReady=true; pendingCreates.forEach(function(f){f();}); pendingCreates=[]; };
 
+  /* A bare 11-char ID is valid input, but only when the whole string is one.
+     The old last-resort /([a-zA-Z0-9_-]{11})/ matched any 11 word characters
+     anywhere, so a Spotify link or a sentence produced a plausible-looking
+     layer that then failed at the player with a misleading "video removed". */
   function extractId(input){
     if(!input) return null; input=input.trim();
     if(/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
@@ -365,7 +418,6 @@
     m=input.match(/\/embed\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
     m=input.match(/\/shorts\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
     m=input.match(/\/live\/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
-    m=input.match(/([a-zA-Z0-9_-]{11})/); if(m) return m[1];
     return null;
   }
   function fillSlider(el){ var p=(el.value-el.min)/(el.max-el.min)*100; el.style.setProperty("--val",p+"%"); }
@@ -378,8 +430,13 @@
       title:cfg.title||("Loading… ("+cfg.videoId+")"),
       volume:cfg.volume!=null?cfg.volume:60, speed:cfg.speed!=null?cfg.speed:1,
       loop:cfg.loop!=null?cfg.loop:true, playing:false, player:null, ready:false,
-      unavailable:null, rates:DEFAULT_RATES};
-    layers.push(L); renderLayers(); createPlayer(L,!!cfg.autoplay); fetchTitle(L); refreshEmpty();
+      unavailable:null, rates:DEFAULT_RATES,
+      offset:cfg.offset!=null?cfg.offset:null, noShuffle:!!cfg.noShuffle};
+    layers.push(L); renderLayers(); createPlayer(L,!!cfg.autoplay);
+    /* Presets and saved mixes already carry a verified title, so fetching it
+       again is a wasted round-trip AND a wasted full re-render per layer. */
+    if(!cfg.title) fetchTitle(L);
+    refreshEmpty(); saveSession();
     return L;
   }
   function createPlayer(L,autoplay){
@@ -392,6 +449,16 @@
             try{ var r=e.target.getAvailablePlaybackRates(); if(r&&r.length) L.rates=r; }catch(_){}
             try{ e.target.setVolume(effectiveVol(L)); }catch(_){}
             try{ e.target.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
+            /* Start somewhere random in the source. Without this every layer
+               begins at t=0 on every load, so a preset sounds identical each
+               time and all layers phase-lock together. Most of these sources
+               are 10-hour recordings, so the offset space is enormous. */
+            if(L.offset!=null){ try{ e.target.seekTo(L.offset,true); }catch(_){} }
+            else if(!L.noShuffle){
+              try{ var d=e.target.getDuration();
+                if(d&&d>60){ L.offset=Math.random()*(d-30); e.target.seekTo(L.offset,true); }
+              }catch(_){}
+            }
             if(autoplay){ L.playing=true; try{ e.target.playVideo(); }catch(_){} }
             syncTitleFromPlayer(L); renderLayers();
           },
@@ -427,7 +494,10 @@
   }
   function syncTitleFromPlayer(L){ try{ var d=L.player.getVideoData(); if(d&&d.title) L.title=d.title; }catch(_){} }
 
-  function effectiveVol(L){ return Math.round(L.volume*masterVolume/100); }
+  /* fadeFactor is the single authority for the sleep fade. The tick used to
+     write faded volumes straight to each player, so touching ANY slider called
+     applyVolume() and snapped the whole mix back to full, mid-fade, at 3am. */
+  function effectiveVol(L){ return Math.round(L.volume*masterVolume/100*fadeFactor); }
   function applyVolume(L){ if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} } }
   function applySpeed(L){ if(L.ready){ try{ L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){} } }
   function playLayer(L){ if(L.ready){ try{ L.player.playVideo(); L.playing=true; applyVolume(L); applySpeed(L);}catch(_){} } renderPlaying(L); }
@@ -435,7 +505,7 @@
   function removeLayer(L){
     if(theatreLayer===L) exitTheatre();
     try{ if(L.player&&L.player.destroy) L.player.destroy(); }catch(_){}
-    layers=layers.filter(function(x){return x!==L;}); renderLayers(); refreshEmpty(); }
+    layers=layers.filter(function(x){return x!==L;}); renderLayers(); refreshEmpty(); saveSession(); }
   function playAll(){ layers.forEach(playLayer); }
   function stopAll(){ layers.forEach(stopLayer); }
   function clearAll(){ if(!layers.length){ toast("Nothing to clear."); return; } layers.slice().forEach(removeLayer); toast("Cleared all sounds."); }
@@ -504,7 +574,7 @@
   tbar.addEventListener("mousemove",function(){ wakeControls(); });
   tbar.addEventListener("touchstart",function(){ wakeControls(); },{passive:true});
   document.getElementById("texit").addEventListener("click",exitTheatre);
-  tfit.addEventListener("click",function(){ fitMode=!fitMode; applyFit(); wakeControls();
+  tfit.addEventListener("click",function(){ fitMode=!fitMode; fitOverridden=true; applyFit(); wakeControls(); saveSession();
     toast(fitMode?"Letterboxed — lighter on the device.":"Cropped to fill — heavier on the device."); });
   document.addEventListener("keydown",function(e){ if(e.key==="Escape"&&theatreLayer) exitTheatre(); });
   document.addEventListener("visibilitychange",function(){
@@ -531,10 +601,10 @@
             '<div class="meta"><p class="title" id="title_'+L.uid+'"></p><div class="status" id="status_'+L.uid+'"></div></div>'+
             '<button class="playbtn" id="pp_'+L.uid+'">▶</button>'+
           '</div>'+
-          '<div class="ctl"><div class="lab"><span>Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
-            '<input type="range" min="0" max="100" id="vol_'+L.uid+'"></div>'+
-          '<div class="ctl"><div class="lab"><span>Speed</span><b id="slab_'+L.uid+'"></b></div>'+
-            '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'"></div>'+
+          '<div class="ctl"><div class="lab"><span id="vname_'+L.uid+'">Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
+            '<input type="range" min="0" max="100" id="vol_'+L.uid+'" aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"></div>'+
+          '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Speed</span><b id="slab_'+L.uid+'"></b></div>'+
+            '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'+
           '<div class="layer-foot">'+
             '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>'+
             '<button class="tvbtn" id="tv_'+L.uid+'">Visualise</button>'+
@@ -545,11 +615,11 @@
         var vol=el.querySelector("#vol_"+L.uid);
         vol.addEventListener("input",function(){ L.volume=+vol.value; applyVolume(L);
           document.getElementById("vlab_"+L.uid).textContent=L.volume+"%"; fillSlider(vol);
-          if(theatreLayer===L){ tvol.value=L.volume; fillSlider(tvol); } });
+          if(theatreLayer===L){ tvol.value=L.volume; fillSlider(tvol); } saveSession(); });
         var spd=el.querySelector("#spd_"+L.uid);
         spd.addEventListener("input",function(){ L.speed=snapRate(L,+spd.value); applySpeed(L);
-          document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); });
-        el.querySelector("#loop_"+L.uid).addEventListener("change",function(e){ L.loop=e.target.checked; });
+          document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); saveSession(); });
+        el.querySelector("#loop_"+L.uid).addEventListener("change",function(e){ L.loop=e.target.checked; saveSession(); });
         el.querySelector("#pp_"+L.uid).addEventListener("click",function(){ if(L.playing) stopLayer(L); else playLayer(L); });
         el.querySelector("#tv_"+L.uid).addEventListener("click",function(){ enterTheatre(L); });
         el.querySelector("#rm_"+L.uid).addEventListener("click",function(){ removeLayer(L); });
@@ -678,6 +748,7 @@
       if(!confirm('Replace the current '+n+' layer'+(n===1?'':'s')+' with "'+p.name+'"?')) return;
       layers.slice().forEach(removeLayer);
     }
+    hideResume(); pendingTheatre=null;
     p.layers.forEach(function(it){
       addLayer({videoId:it.id,title:it.t,volume:it.v,speed:it.s,loop:true,autoplay:true});
     });
@@ -698,6 +769,52 @@
   function loadMixes(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(_){ return {}; } }
   function storeMixes(m){ try{ localStorage.setItem(LS_KEY,JSON.stringify(m)); }catch(_){ toast("Couldn't save (storage blocked)."); } }
   function currentMixData(){ return layers.map(function(L){ return {videoId:L.videoId,title:L.title,volume:L.volume,speed:L.speed,loop:L.loop,visualiser:theatreLayer===L}; }); }
+
+  /* ---------- Session persistence ----------
+     A refresh used to lose the whole blend unless it had been explicitly saved
+     as a named mix — and phones evict background tabs routinely. Writes are
+     debounced because sliders fire continuously while dragging. */
+  var sessionT=null;
+  function saveSession(){
+    clearTimeout(sessionT);
+    sessionT=setTimeout(function(){
+      try{
+        localStorage.setItem(SESSION_KEY,JSON.stringify({
+          v:2, layers:currentMixData(), master:masterVolume,
+          dim:dimLevel, fit:fitMode, sleep:+document.getElementById("sleepSel").value||0
+        }));
+      }catch(_){}
+    },400);
+  }
+  function restoreSession(){
+    var d;
+    try{ d=JSON.parse(localStorage.getItem(SESSION_KEY)||"null"); }catch(_){ return false; }
+    if(!d||!d.layers||!d.layers.length) return false;
+    if(typeof d.master==="number"){ masterVolume=d.master;
+      var mv=document.getElementById("masterVol"); mv.value=masterVolume; fillSlider(mv); }
+    if(typeof d.dim==="number"){ dimLevel=d.dim; tdim.value=Math.round(dimLevel*100); fillSlider(tdim); }
+    if(typeof d.fit==="boolean"){ fitMode=d.fit; applyFit(); }
+    /* Restored paused: autoplay needs a user gesture, and waking up to sound
+       you did not ask for is the opposite of what this app is for. */
+    var vis=null;
+    d.layers.forEach(function(x){
+      if(!x||!/^[a-zA-Z0-9_-]{11}$/.test(x.videoId||"")) return;
+      var L=addLayer({videoId:x.videoId,title:x.title,volume:x.volume,speed:x.speed,
+                      loop:x.loop,autoplay:false});
+      if(x.visualiser) vis=L;
+    });
+    if(!layers.length) return false;
+    if(vis) pendingTheatre=vis;
+    showResume();
+    return true;
+  }
+  function showResume(){
+    var bar=document.getElementById("resume");
+    bar.hidden=false;
+    document.getElementById("resumeCount").textContent=
+      layers.length+" layer"+(layers.length===1?"":"s");
+  }
+  function hideResume(){ document.getElementById("resume").hidden=true; }
   function saveCurrent(){
     if(!layers.length){ toast("Add some layers first."); return; }
     var name=prompt("Name this mix:","My mix"); if(!name) return;
@@ -705,6 +822,7 @@
   }
   function loadMix(name,data,replace){
     if(replace) layers.slice().forEach(removeLayer);
+    hideResume(); pendingTheatre=null;
     var vis=null;
     data.forEach(function(d){
       var L=addLayer({videoId:d.videoId,title:d.title,volume:d.volume,speed:d.speed,loop:d.loop,autoplay:true});
@@ -719,10 +837,20 @@
     var m=loadMixes(), names=Object.keys(m);
     if(!names.length){ var s=document.createElement("span"); s.className="hint"; s.id="noMixes"; s.style.margin="0"; s.textContent="Nothing saved yet."; box.appendChild(s); return; }
     names.forEach(function(name){
+      /* Built with createElement + textContent, never innerHTML: a mix name is
+         user data, and imported files carry names chosen by whoever made them.
+         `<img src=x onerror=...>` as a name used to execute on render. */
       var el=document.createElement("div"); el.className="mix";
-      el.innerHTML='<span class="name">'+name+'</span><button class="x">✕</button>';
-      el.querySelector(".name").addEventListener("click",function(){ loadMix(name,m[name],true); });
-      el.querySelector(".x").addEventListener("click",function(){ var mm=loadMixes(); delete mm[name]; storeMixes(mm); renderMixes(); });
+      var n=document.createElement("span"); n.className="name"; n.textContent=name;
+      n.setAttribute("role","button"); n.setAttribute("tabindex","0");
+      n.title='Load "'+name+'"';
+      var x=document.createElement("button"); x.className="x"; x.textContent="✕";
+      x.setAttribute("aria-label",'Delete mix "'+name+'"');
+      n.addEventListener("click",function(){ loadMix(name,m[name],true); });
+      n.addEventListener("keydown",function(e){
+        if(e.key==="Enter"||e.key===" "){ e.preventDefault(); loadMix(name,m[name],true); } });
+      x.addEventListener("click",function(){ var mm=loadMixes(); delete mm[name]; storeMixes(mm); renderMixes(); });
+      el.appendChild(n); el.appendChild(x);
       box.appendChild(el);
     });
   }
@@ -744,20 +872,37 @@
     r.readAsText(file);
   }
 
+  /* The countdown text updates twice a second (cheap, local DOM), but the fade
+     itself only steps every FADE_STEP ms. Each volume change is a postMessage
+     across an iframe boundary — at 5 layers the old 500ms fade meant 10
+     messages a second for 30s, right as the device is trying to wind down.
+     The curve is equal-power rather than linear, so it sounds like a fade
+     instead of dropping fast and then hanging near silence. */
+  var FADE_MS=30000, FADE_STEP=2000;
   function setSleep(mins){
-    clearTimeout(sleepTimer); clearInterval(sleepTick); document.getElementById("timerLeft").textContent="";
+    clearTimeout(sleepTimer); clearInterval(sleepTick);
+    document.getElementById("timerLeft").textContent="";
+    fadeFactor=1; layers.forEach(applyVolume);
     if(!mins) return;
-    sleepEndsAt=Date.now()+mins*60000; var FADE=30000;
+    sleepEndsAt=Date.now()+mins*60000;
+    var lastFadeAt=0;
     sleepTick=setInterval(function(){
       var left=sleepEndsAt-Date.now();
       if(left<=0){ clearInterval(sleepTick); document.getElementById("timerLeft").textContent=""; return; }
       var mm=Math.floor(left/60000), ss=Math.floor((left%60000)/1000);
       document.getElementById("timerLeft").textContent=mm+":"+(ss<10?"0":"")+ss;
-      if(left<=FADE){ var f=left/FADE; layers.forEach(function(L){ if(L.ready){ try{ L.player.setVolume(Math.round(effectiveVol(L)*f)); }catch(_){} } }); }
+      if(left<=FADE_MS && Date.now()-lastFadeAt>=FADE_STEP){
+        lastFadeAt=Date.now();
+        fadeFactor=Math.pow(Math.max(left,0)/FADE_MS,0.5);
+        layers.forEach(applyVolume);
+      }
     },500);
-    sleepTimer=setTimeout(function(){ stopAll(); layers.forEach(applyVolume);
+    sleepTimer=setTimeout(function(){
+      stopAll(); fadeFactor=1; layers.forEach(applyVolume);
       if(theatreLayer) exitTheatre();
-      document.getElementById("sleepSel").value="0"; toast("Sleep timer ended — faded out gently."); },mins*60000);
+      document.getElementById("sleepSel").value="0"; saveSession();
+      toast("Sleep timer ended — faded out gently."); },mins*60000);
+    saveSession();
   }
 
   var toastEl=document.getElementById("toast"), toastT;
@@ -767,22 +912,62 @@
   document.getElementById("btnAdd").addEventListener("click",function(){
     var inp=document.getElementById("urlInput"); var id=extractId(inp.value);
     if(!id){ toast("Couldn't find a video ID in that."); return; }
+    hideResume();
     addLayer({videoId:id,autoplay:true}); inp.value="";
   });
   document.getElementById("urlInput").addEventListener("keydown",function(e){ if(e.key==="Enter") document.getElementById("btnAdd").click(); });
-  document.getElementById("btnPlayAll").addEventListener("click",playAll);
+  document.getElementById("btnPlayAll").addEventListener("click",function(){ hideResume(); playAll(); });
   document.getElementById("btnStopAll").addEventListener("click",stopAll);
   document.getElementById("btnClearAll").addEventListener("click",clearAll);
   var mv=document.getElementById("masterVol"); fillSlider(mv);
-  mv.addEventListener("input",function(e){ masterVolume=+e.target.value; fillSlider(mv); layers.forEach(applyVolume); });
+  mv.addEventListener("input",function(e){ masterVolume=+e.target.value; fillSlider(mv); layers.forEach(applyVolume); saveSession(); });
   document.getElementById("btnSave").addEventListener("click",saveCurrent);
   document.getElementById("btnExport").addEventListener("click",exportMixes);
   document.getElementById("btnImport").addEventListener("click",function(){ document.getElementById("fileImport").click(); });
   document.getElementById("fileImport").addEventListener("change",function(e){ if(e.target.files[0]) importMixes(e.target.files[0]); e.target.value=""; });
   document.getElementById("sleepSel").addEventListener("change",function(e){ setSleep(+e.target.value); });
 
+  document.getElementById("btnResume").addEventListener("click",function(){
+    hideResume(); playAll();
+    if(pendingTheatre){ var t=pendingTheatre; pendingTheatre=null; enterTheatre(t); }
+  });
+  document.getElementById("btnDiscard").addEventListener("click",function(){
+    hideResume(); pendingTheatre=null;
+    layers.slice().forEach(removeLayer);
+    try{ localStorage.removeItem(SESSION_KEY); }catch(_){}
+  });
+
+  /* Pause decorative animation while the tab is hidden — this app is designed
+     to sit in a background tab for hours. */
+  document.addEventListener("visibilitychange",function(){
+    document.body.classList.toggle("hidden-tab",document.hidden);
+  });
+
+  /* fitMode's default (letterbox in portrait, which makes YouTube serve a
+     device-sized stream) was only ever evaluated once at load, so rotating
+     the phone kept the wrong choice. Track whether the user has overridden
+     it and respect that; otherwise follow the orientation. */
+  var fitOverridden=false;
+  window.addEventListener("orientationchange",function(){
+    if(fitOverridden) return;
+    setTimeout(function(){
+      fitMode=(window.innerHeight>window.innerWidth); applyFit(); saveSession();
+    },120);
+  });
+
+  document.body.classList.toggle("hidden-tab",document.hidden);
   fillSlider(tvol); fillSlider(tdim); applyFit();
-  renderPresets(); renderMixes(); refreshEmpty();
+  renderPresets(); renderMixes();
+  restoreSession();
+  refreshEmpty();
+
+  /* Offline shell. Registered late so it never competes with the YouTube API
+     for the initial load, and only over https/localhost where SW is allowed. */
+  if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
+    window.addEventListener("load",function(){
+      navigator.serviceWorker.register("/sw.js").catch(function(){});
+    });
+  }
 })();
 </script>
 </body>
