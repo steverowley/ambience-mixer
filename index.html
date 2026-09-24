@@ -856,7 +856,12 @@
             if(autoplay) playLayer(L); else renderPlaying(L);
           },
           onStateChange:function(e){
-            if(e.data===YT.PlayerState.ENDED && L.loop){ try{ L.player.seekTo(0); L.player.playVideo(); }catch(_){} }
+            if(e.data===YT.PlayerState.ENDED){
+              if(L.loop){ try{ L.player.seekTo(0); L.player.playVideo(); }catch(_){} }
+              /* Without this the card keeps its glow and says "playing" over
+                 silence, with a pause button that does nothing. */
+              else { L.playing=false; }
+            }
             if(e.data===YT.PlayerState.PLAYING){ L.playing=true; }
             if(e.data===YT.PlayerState.PAUSED){ L.playing=false; }
             try{ if(Math.abs(L.player.getPlaybackRate()-L.speed)>.001) L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
@@ -1088,6 +1093,11 @@
     var t=card.querySelector(".thumb"); if(t){ t.classList.remove("theatre"); t.classList.remove("fit"); }
   }
   function enterTheatre(L){
+    /* Theatre mode shows the layer's video. A synth layer has none — its tile
+       is a 66px gradient — so blowing it fullscreen gives a blank screen and
+       no way back except Exit. Reachable from an imported or shared mix
+       carrying visualiser:true, not from the UI, which omits the button. */
+    if(!L || isSynth(L)) return;
     if(theatreLayer===L){ exitTheatre(); return; }
     if(theatreLayer) theatreDomOff(theatreLayer);
     theatreLayer=L;
@@ -1540,16 +1550,24 @@
   var sessionT=null;
   function saveSession(){
     clearTimeout(sessionT);
-    sessionT=setTimeout(function(){
+    sessionT=setTimeout(writeSession,400);
+  }
+  /* Debouncing loses the last change if the tab closes inside the window —
+     which on mobile is the common case, not the rare one. */
+  function flushSession(){ clearTimeout(sessionT); writeSession(); }
+  function writeSession(){
       try{
         localStorage.setItem(SESSION_KEY,JSON.stringify({
           v:2, layers:currentMixData(), master:masterVolume,
           dim:dimLevel, fit:fitMode, wake:wakeWanted, name:currentMixName,
           solo:soloLayer?layers.indexOf(soloLayer):-1,
-          sleep:+document.getElementById("sleepSel").value||0
+          sleep:+document.getElementById("sleepSel").value||0,
+          /* Absolute end time, not minutes remaining: a phone that evicts the
+             tab for an hour must resume with the right time left, or wake you
+             up to a soundscape that never stopped. */
+          sleepEndsAt:sleepEndsAt||0
         }));
       }catch(_){}
-    },400);
   }
   function restoreSession(){
     var d;
@@ -1573,6 +1591,16 @@
     if(typeof d.solo==="number" && d.solo>=0 && layers[d.solo]) soloLayer=layers[d.solo];
     if(typeof d.name==="string") currentMixName=d.name;
     if(d.wake){ wakeWanted=true; }
+    /* Restore a running sleep timer with the time that is actually left.
+       Anything already expired, or further out than the longest option, is
+       discarded rather than guessed at. */
+    if(d.sleepEndsAt && d.sleep){
+      var left=d.sleepEndsAt-Date.now();
+      if(left>5000 && left<=d.sleep*60000+60000){
+        document.getElementById("sleepSel").value=String(d.sleep);
+        resumeSleep(d.sleepEndsAt);
+      }
+    }
     if(vis) pendingTheatre=vis;
     renderLayers();
     showResume();
@@ -1707,6 +1735,11 @@
     if(d.kind==="wa"||d.synth){
       base.kind="wa"; base.synth=d.synth;
       base.tone=d.tone!=null&&isFinite(d.tone)?Math.max(0,Math.min(100,+d.tone)):50;
+      /* A synth has no video, so it can never be the visualiser, and loop is
+         meaningless for an endless source. Drop both rather than carry a lie
+         into saved mixes and shared links. */
+      base.visualiser=false;
+      delete base.loop;
     } else {
       base.kind="yt"; base.videoId=d.videoId;
       base.speed=d.speed!=null?+d.speed:1;
@@ -1787,10 +1820,22 @@
     clearTimeout(sleepTimer); clearInterval(sleepTick);
     document.getElementById("timerLeft").textContent="";
     fadeFactor=1; layers.forEach(applyVolume);
-    if(!mins) return;
-    sleepEndsAt=Date.now()+mins*60000;
+    sleepEndsAt=0;
+    if(!mins){ saveSession(); return; }
+    startSleepCountdown(Date.now()+mins*60000);
+    saveSession();
+  }
+  /* Split out so a restored timer runs the identical countdown rather than a
+     second implementation that can drift from this one. */
+  function resumeSleep(endsAt){
+    clearTimeout(sleepTimer); clearInterval(sleepTick);
+    fadeFactor=1;
+    startSleepCountdown(endsAt);
+  }
+  function startSleepCountdown(endsAt){
+    sleepEndsAt=endsAt;
     var lastFadeAt=0;
-    sleepTick=setInterval(function(){
+    var tickFn=function(){
       var left=sleepEndsAt-Date.now();
       if(left<=0){ clearInterval(sleepTick); document.getElementById("timerLeft").textContent=""; return; }
       var mm=Math.floor(left/60000), ss=Math.floor((left%60000)/1000);
@@ -1800,13 +1845,15 @@
         fadeFactor=Math.pow(Math.max(left,0)/FADE_MS,0.5);
         layers.forEach(applyVolume);
       }
-    },500);
+    };
+    tickFn();
+    sleepTick=setInterval(tickFn,500);
     sleepTimer=setTimeout(function(){
       stopAll(); fadeFactor=1; layers.forEach(applyVolume);
       if(theatreLayer) exitTheatre();
+      sleepEndsAt=0;
       document.getElementById("sleepSel").value="0"; saveSession();
-      toast("Sleep timer ended — faded out gently."); },mins*60000);
-    saveSession();
+      toast("Sleep timer ended — faded out gently."); },Math.max(0,sleepEndsAt-Date.now()));
   }
 
   var toastEl=document.getElementById("toast"), toastT;
@@ -1816,6 +1863,11 @@
   document.getElementById("btnAdd").addEventListener("click",function(){
     var inp=document.getElementById("urlInput"); var id=extractId(inp.value);
     if(!id){ toast("Couldn't find a video ID in that."); return; }
+    /* Two copies of one source is not a thicker layer — it is the same audio
+       a few milliseconds apart, which is audible as phasing, and it costs a
+       second decoder. */
+    var dupe=layers.some(function(L){ return !isSynth(L) && L.videoId===id; });
+    if(dupe){ toast("That video is already a layer."); inp.value=""; return; }
     hideResume();
     addLayer({videoId:id,autoplay:true}); inp.value="";
   });
@@ -1851,7 +1903,11 @@
      to sit in a background tab for hours. */
   document.addEventListener("visibilitychange",function(){
     document.body.classList.toggle("hidden-tab",document.hidden);
+    /* pagehide is not guaranteed on mobile; hiding the tab is the last
+       reliable moment to write state. */
+    if(document.hidden) flushSession();
   });
+  window.addEventListener("pagehide",flushSession);
 
   /* fitMode's default (letterbox in portrait, which makes YouTube serve a
      device-sized stream) was only ever evaluated once at load, so rotating

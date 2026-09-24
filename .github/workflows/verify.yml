@@ -28,8 +28,11 @@ jobs:
       # Measures the layer card's footer rows against the grid's 320px
       # minimum width. Guards the regression where added controls overflowed
       # the card and rendered over its neighbour.
-      - name: Layout fits
+      - name: Layout checks
         run: node .dev/layout.js
+
+      - name: Bug audit
+        run: node .dev/audit.js --ci
 
   assets:
     name: Static assets
