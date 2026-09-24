@@ -130,7 +130,7 @@ function mkEl(tag) {
   "sleepSel","timerLeft","shade","catch","tbar","tname","tvol","tdim","tplay","tfit","texit",
   "hint","noMixes","resume","resumeCount","btnResume","btnDiscard",
   "dlg","dlgTitle","dlgBody","dlgInput","dlgOk","dlgCancel",
-  "tall","tallLabel","synths"
+  "tall","tallLabel","synths","update","btnUpdate","btnUpdateLater"
 ].forEach(id => { byId[id] = mkEl("div"); byId[id].id = id; });
 byId.masterVol.value="100"; byId.masterVol.min="0"; byId.masterVol.max="100";
 byId.tvol.value="60"; byId.tvol.min="0"; byId.tvol.max="100";
@@ -480,6 +480,17 @@ ok("a restored sleep timer reuses the same countdown",
    /function resumeSleep\(endsAt\)\{[\s\S]{0,220}startSleepCountdown\(endsAt\)/.test(html));
 ok("an expired sleep timer is discarded", /left>5000 && left<=d\.sleep\*60000/.test(html));
 ok("duplicate videos are refused", /already a layer/.test(html));
+
+// ---- stale-build detection ----
+const sw = require("fs").readFileSync(require("path").join(__dirname, "..", "sw.js"), "utf8");
+ok("a waiting worker surfaces an update offer", /sw\.state==="installed" && navigator\.serviceWorker\.controller\) showUpdate\(\)/.test(html));
+ok("updates are re-checked when the tab returns", /if\(!document\.hidden\) reg\.update\(\)/.test(html));
+ok("the update offer never reloads on its own", /btnUpdate"\)\.addEventListener/.test(html) && !/showUpdate\(\)\{[\s\S]{0,200}location\.reload/.test(html));
+ok("accepting an update flushes the session first", /btnUpdate"\)\.addEventListener\("click",function\(\)\{\s*flushSession\(\)/.test(html));
+ok("the waiting worker is told to activate", /postMessage\("skipWaiting"\)/.test(html));
+ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
+ok("the cache version was bumped", /ambience-v3/.test(sw));
+ok("Later dismisses without reloading", /btnUpdateLater[\s\S]{0,140}hidden=true/.test(html));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
