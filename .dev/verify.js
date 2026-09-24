@@ -129,7 +129,8 @@ function mkEl(tag) {
   "btnClearAll","btnWake","masterVol","btnSave","btnShare","btnExport","btnImport","fileImport",
   "sleepSel","timerLeft","shade","catch","tbar","tname","tvol","tdim","tplay","tfit","texit",
   "hint","noMixes","resume","resumeCount","btnResume","btnDiscard",
-  "dlg","dlgTitle","dlgBody","dlgInput","dlgOk","dlgCancel"
+  "dlg","dlgTitle","dlgBody","dlgInput","dlgOk","dlgCancel",
+  "tall","tallLabel","synths"
 ].forEach(id => { byId[id] = mkEl("div"); byId[id].id = id; });
 byId.masterVol.value="100"; byId.masterVol.min="0"; byId.masterVol.max="100";
 byId.tvol.value="60"; byId.tvol.min="0"; byId.tvol.max="100";
@@ -221,6 +222,7 @@ const probe = app.replace(/\}\)\(\);\s*$/,
       setFade:function(v){fadeFactor=v;}, addLayer:addLayer, layers:function(){return layers;},
       renderMixes:renderMixes, loadMixes:loadMixes, storeMixes:storeMixes,
       encodeMix:encodeMix, decodeMix:decodeMix, validLayer:validLayer, cleanLayer:cleanLayer,
+      enterTheatre:enterTheatre, exitTheatre:exitTheatre, theatre:function(){return theatreLayer;},
       toggleMute:toggleMute, toggleSolo:toggleSolo, solo:function(){return soloLayer;},
       SYNTHS:SYNTHS, synthMeta:synthMeta, isSynth:isSynth, toneLabel:toneLabel,
       applyTone:applyTone, ctx:function(){return audioCtx;}, applyVolume:applyVolume,
@@ -455,6 +457,29 @@ ok("session stores a mixed soundscape", s2 && s2.layers.length === 2);
 ok("session records the layer kind", s2 && s2.layers.every(l => l.kind));
 ok("session keeps synth id and tone",
    s2 && s2.layers.some(l => l.synth === "waves" && l.tone === 30));
+
+// ---- audit fixes: prove behaviour, not just that a pattern is present ----
+console.log("\n[audit fixes]");
+ok("theatre refuses a synth layer", (function(){
+  const s = T.addLayer({ synth:"rain", volume:50, autoplay:false });
+  T.enterTheatre(s);
+  const blocked = T.theatre() !== s;
+  T.exitTheatre();
+  return blocked;
+})());
+ok("cleanLayer strips visualiser from a synth",
+   T.cleanLayer({ kind:"wa", synth:"rain", visualiser:true }).visualiser === false);
+ok("cleanLayer drops meaningless loop from a synth",
+   T.cleanLayer({ kind:"wa", synth:"rain", loop:true }).loop === undefined);
+ok("a finished non-looping video stops claiming to play",
+   /ENDED\)\{[\s\S]{0,400}else\s*\{\s*L\.playing=false/.test(html));
+ok("session is flushed on pagehide", /addEventListener\("pagehide",flushSession\)/.test(html));
+ok("session is flushed when the tab is hidden", /if\(document\.hidden\) flushSession\(\)/.test(html));
+ok("the sleep timer's end time is persisted", /sleepEndsAt:sleepEndsAt\|\|0/.test(html));
+ok("a restored sleep timer reuses the same countdown",
+   /function resumeSleep\(endsAt\)\{[\s\S]{0,220}startSleepCountdown\(endsAt\)/.test(html));
+ok("an expired sleep timer is discarded", /left>5000 && left<=d\.sleep\*60000/.test(html));
+ok("duplicate videos are refused", /already a layer/.test(html));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);

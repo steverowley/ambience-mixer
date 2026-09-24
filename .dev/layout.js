@@ -80,7 +80,62 @@ for (const row of [row1, row1s, row2a, row2b, row2s]) {
   ok(row.name + " fits the card", total <= inner, `needs ${total}px, has ${inner}px`);
 }
 
-/* ---- structural guards ---- */
+/* ---- theatre bar: does the control strip fit a narrow phone? ----
+   The bar is one non-wrapping row over the video. At 360px it holds the
+   play button, the layer name, two sliders, Pause all, Fit and Exit. */
+console.log("\n[theatre bar]");
+const phone = 360;
+const tbarPadX = cssNum(/\.tbar\{[^}]*padding:\d+px (\d+)px/, "tbar padding-x (wide)", 28);
+const tbarPadNarrow = 16;                       // from the 520px breakpoint
+const tbarGap = 10;                             // from the 520px breakpoint
+const sliderW = 66;                             // .tbar .trow input at <=520px
+const nameW = 120;                              // .tbar .tname max-width at <=520px
+const pillPadX = 13, pillFont = 12;             // .tbar .pill at <=520px
+function pillWidth(label, hasIcon) {
+  const glyphs = label.length * pillFont * 0.55;
+  return Math.ceil(glyphs + pillPadX * 2 + 2 + (hasIcon ? 14 + 8 : 0));
+}
+const labelW = 11 * 5.5;                        // "Volume"/"Dim" caps label
+/* At <=430px the bar sheds the layer name and the slider captions, and the
+   Pause all button drops to its icon — see the 430px breakpoint. */
+const narrowItems = [
+  42,                                           // play button
+  66, 66,                                       // two sliders, no captions
+  pillWidth("", true) - 6,                      // Pause all, icon only, tighter pad
+  pillWidth("Fit", false) - 6,
+  26                                            // Exit, ✕ only
+];
+const narrowGap = 8, narrowPad = 12;
+const narrowTotal = narrowItems.reduce((a, b) => a + b, 0) + narrowGap * (narrowItems.length - 1);
+const narrowAvail = phone - narrowPad * 2;
+console.log(`  at ${phone}px: ${narrowItems.map(Math.round).join(" + ")} = ${Math.round(narrowTotal)}px / ${narrowAvail}px`);
+ok("theatre bar fits one row on a 360px phone", narrowTotal <= narrowAvail,
+   `needs ${Math.round(narrowTotal)}px, has ${narrowAvail}px`);
+ok("narrow breakpoint sheds the layer name", /@media \(max-width:430px\)[\s\S]{0,300}\.tbar \.tname\{display:none\}/.test(html));
+ok("narrow breakpoint reduces Pause all to its icon", /#tallLabel\{display:none\}/.test(html));
+const tbarItems = [
+  42,                                           // play button
+  nameW,
+  labelW + tbarGap + sliderW,                   // Volume
+  labelW + tbarGap + sliderW,                   // Dim
+  pillWidth("Pause all", true),
+  pillWidth("Fit", false),
+  pillWidth("Exit ✕", false)
+];
+const tbarTotal = tbarItems.reduce((a, b) => a + b, 0) + tbarGap * (tbarItems.length - 1);
+const tbarAvail = phone - tbarPadNarrow * 2;
+console.log(`  items ${tbarItems.join(" + ")} = ${tbarTotal}px / ${tbarAvail}px at ${phone}px`);
+ok("theatre bar wraps rather than overflowing",
+   /\.tbar\{[^}]*flex-wrap:wrap/.test(html));
+ok("theatre bar has a Pause all control", /id="tall"/.test(html));
+ok("Pause all sits with the global controls, not the layer controls",
+   html.indexOf('id="tall"') > html.indexOf('id="tvol"'));
+ok("Pause all label reflects state",
+   /any\?"Pause all":"Play all"/.test(html));
+ok("Pause all keeps its accessible name in sync",
+   /tall\.setAttribute\("aria-label",any\?"Pause all layers":"Play all layers"\)/.test(html));
+ok("theatre bar re-syncs when any layer changes state",
+   /if\(theatreLayer\) syncTheatreAll\(\)/.test(html));
 console.log("\n[structure]");
 ok("footer stacks in a column",
    /\.layer-foot\{[^}]*flex-direction:column/.test(html));
