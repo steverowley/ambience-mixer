@@ -106,6 +106,7 @@ function mkEl(tag) {
     addEventListener(ev, fn){ (this._listeners[ev] = this._listeners[ev] || []).push(fn); },
     dispatch(ev, arg){ (this._listeners[ev]||[]).forEach(f=>f(arg||{target:this,preventDefault(){}})); },
     setAttribute(k,v){ this._attrs[k]=v; }, getAttribute(k){ return this._attrs[k]; },
+    removeAttribute(k){ delete this._attrs[k]; if(k==="title") this.title=""; },
     appendChild(c){ this.children.push(c); c.parentNode = this; return c; },
     remove(){ if(this.parentNode){ const i=this.parentNode.children.indexOf(this); if(i>=0) this.parentNode.children.splice(i,1); } },
     _all(){ const out=[]; (function walk(n){ n.children.forEach(c=>{ out.push(c); walk(c); }); })(this); return out; },
@@ -491,6 +492,40 @@ ok("the waiting worker is told to activate", /postMessage\("skipWaiting"\)/.test
 ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
 ok("the cache version was bumped", /ambience-v3/.test(sw));
 ok("Later dismisses without reloading", /btnUpdateLater[\s\S]{0,140}hidden=true/.test(html));
+
+// ---- contextual controls ----
+console.log("\n[contextual controls]");
+const dis = id => byId[id].disabled === true;
+/* The dock is found by class, not id, so the stub needs a real element there. */
+const dockEl = mkEl("div"); dockEl.className = "dock";
+const prevQS = sandbox.document.querySelector;
+sandbox.document.querySelector = sel => (sel === ".dock" ? dockEl : prevQS(sel));
+T.layers().slice().forEach(T.removeLayer);
+ok("with nothing added, the dock is hidden", dockEl.hidden === true);
+ok("Play all is disabled with no layers", dis("btnPlayAll"));
+ok("Pause all is disabled with no layers", dis("btnStopAll"));
+ok("Save is disabled with no layers", dis("btnSave"));
+ok("Share is disabled with no layers", dis("btnShare"));
+ok("a disabled control explains itself", /Add a layer first|Add a layer before/.test(byId.btnPlayAll.title + byId.btnSave.title));
+
+/* A synth layer needs no YouTube player, so it actually reaches the playing
+   state in the stub — the video path throws on the absent iframe API. */
+const cl = T.addLayer({ synth: "rain", volume: 60, autoplay: false });
+ok("Play all enables once a layer exists", !dis("btnPlayAll"));
+ok("Pause all stays disabled while nothing plays", dis("btnStopAll"));
+ok("Save enables once a layer exists", !dis("btnSave"));
+ok("Share enables once a layer exists", !dis("btnShare"));
+
+cl.ready = true; T.playLayer(cl, true);
+ok("Pause all enables once something plays", !dis("btnStopAll"));
+ok("Play all disables when everything already plays", dis("btnPlayAll"));
+ok("'already playing' is the stated reason", /already playing/.test(byId.btnPlayAll.title));
+
+T.stopLayer(cl, true);
+ok("Play all returns when playback stops", !dis("btnPlayAll"));
+ok("Pause all disables again", dis("btnStopAll"));
+T.removeLayer(cl);
+ok("removing the last layer disables everything again", dis("btnPlayAll") && dis("btnSave"));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
