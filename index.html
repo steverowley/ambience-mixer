@@ -390,6 +390,21 @@
     .tbar .trow input[type=range]{width:66px}
     .tbar .pill{padding:8px 13px; font-size:12px}
   }
+  /* Phones in theatre mode: the bar sits over the video, so it must stay one
+     or two rows, never three. Drop what the video itself already tells you
+     (the layer name) and let the icons carry the buttons. */
+  @media (max-width:430px){
+    .tbar{gap:8px; padding:14px 12px calc(14px + env(safe-area-inset-bottom))}
+    .tbar .tname{display:none}
+    .tbar .trow span{display:none}
+    .tbar .trow input[type=range]{width:66px}
+    .tbar .pill{padding:8px 10px; font-size:11.5px}
+    #tall .ico{width:15px; height:15px}
+    #tallLabel{display:none}
+    /* "Exit ✕" is redundant once space is tight — the ✕ is the whole word. */
+    #texit{font-size:15px; line-height:1; padding:8px 11px}
+    #texit .word{display:none}
+  }
   /* Narrow cards (and narrow phones): the footer rows stack rather than
      letting a chip escape the card's padding. */
   @media (max-width:380px){
@@ -477,8 +492,12 @@
   <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60" aria-label="Visualiser layer volume"></div>
   <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35" aria-label="Screen dim level"></div>
   <div class="spacer"></div>
+  <button class="pill ghost with-ico" id="tall" aria-label="Pause all layers">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>
+    <span id="tallLabel">Pause all</span>
+  </button>
   <button class="pill ghost" id="tfit">Fit</button>
-  <button class="pill ghost" id="texit">Exit ✕</button>
+  <button class="pill ghost" id="texit" aria-label="Exit the visualiser" title="Exit the visualiser"><span class="word">Exit </span>✕</button>
 </div>
 
 <div class="dock">
@@ -1038,7 +1057,21 @@
   var shade=document.getElementById("shade"), catcher=document.getElementById("catch"),
       tbar=document.getElementById("tbar"), tname=document.getElementById("tname"),
       tvol=document.getElementById("tvol"), tdim=document.getElementById("tdim"),
-      tplay=document.getElementById("tplay"), tfit=document.getElementById("tfit");
+      tplay=document.getElementById("tplay"), tfit=document.getElementById("tfit"),
+      tall=document.getElementById("tall"), tallLabel=document.getElementById("tallLabel");
+
+  /* The dock is hidden in theatre mode, so without this the only transport is
+     the visualised layer's own button — every other layer keeps playing with
+     no way to stop it. Stateful, because "Pause all" is a lie once everything
+     is already paused. */
+  function syncTheatreAll(){
+    if(!tall) return;
+    var any=layers.some(function(L){ return L.playing; });
+    tall.innerHTML=(any?ICON_PAUSE:ICON_PLAY)+
+      '<span id="tallLabel">'+(any?"Pause all":"Play all")+"</span>";
+    tall.setAttribute("aria-label",any?"Pause all layers":"Play all layers");
+    tall.title=any?"Pause every layer":"Play every layer";
+  }
 
   function theatreThumb(){
     if(!theatreLayer) return null;
@@ -1067,7 +1100,7 @@
     tname.textContent=L.title;
     tvol.value=L.volume; fillSlider(tvol);
     tdim.value=Math.round(dimLevel*100); fillSlider(tdim);
-    applyFit(); requestWake(); wakeControls();
+    applyFit(); requestWake(); wakeControls(); syncTheatreAll();
     if(!L.playing) playLayer(L);
     renderLayers();
   }
@@ -1112,6 +1145,12 @@
     renderPlaying(L); wakeControls(); });
   tplay.addEventListener("click",function(){ if(!theatreLayer) return;
     if(theatreLayer.playing) stopLayer(theatreLayer); else playLayer(theatreLayer); wakeControls(); });
+  tall.addEventListener("click",function(){
+    var any=layers.some(function(L){ return L.playing; });
+    if(any) stopAll(); else playAll();
+    wakeControls();
+    toast(any?"Paused every layer.":"Playing every layer.");
+  });
 
   var grid=document.getElementById("grid");
   function renderLayers(){
@@ -1257,6 +1296,7 @@
     el.classList.toggle("silent",!L.unavailable && (L.muted || (soloLayer && soloLayer!==L)));
     var pp=document.getElementById("pp_"+L.uid); setPlayIcon(pp,L.playing);
     if(theatreLayer===L) setPlayIcon(tplay,L.playing);
+    if(theatreLayer) syncTheatreAll();
     var s=document.getElementById("status_"+L.uid); if(!s) return;
     if(L.unavailable){ s.innerHTML='<span class="gone"></span>';
       s.firstChild.textContent=L.unavailable; return; }
