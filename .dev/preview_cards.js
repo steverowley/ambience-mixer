@@ -22,6 +22,11 @@ function card({ title, status, playing, silent, gone, vol, spd, loop,
     'stroke="currentColor" stroke-width="2.4" stroke-linecap="round">' +
     '<path d="M4 24c4 0 4-9 8-9s4 18 8 18 4-18 8-18 4 9 8 9"/>' +
     '<path d="M40 24h4" opacity=".45"/></svg>';
+  const PLAY = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>';
+  const PAUSE = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/>' +
+    '<rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>';
   return `
 <div class="${cls}">
   <div class="layer-head">
@@ -30,7 +35,7 @@ function card({ title, status, playing, silent, gone, vol, spd, loop,
       <p class="title">${title}</p>
       <div class="status">${status}</div>
     </div>
-    <button class="playbtn">${playing ? "⏸" : "▶"}</button>
+    <button class="playbtn">${playing ? PAUSE : PLAY}</button>
   </div>
   <div class="ctl"><div class="lab"><span>Volume</span><b>${vol}%</b></div>
     <input type="range" min="0" max="100" value="${vol}" style="--val:${vol}%"></div>

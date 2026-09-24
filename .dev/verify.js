@@ -61,6 +61,24 @@ ok("no stale 3-arg loadMix calls", !/loadMix\([^)]*,true\)/.test(html));
 ok("Fraunces self-hosted", /@font-face\{[\s\S]{0,200}fraunces-subset\.woff2/.test(html));
 ok("Fraunces preloaded", /rel="preload" href="\/fraunces-subset\.woff2"/.test(html));
 ok("Google Fonts no longer serves Fraunces", !/googleapis[^"]*Fraunces/.test(html));
+// Play/pause iconography
+ok("play/pause are SVG, not text glyphs",
+   !/textContent=L\.playing\?"⏸"/.test(html) && !/>▶</.test(html));
+/* Glyphs may still appear in the comment explaining why they were removed;
+   what matters is that none reach the DOM as button content. */
+ok("no glyph is rendered as button content",
+   !/>\s*[▶⏸]\s*</.test(html) && !/textContent\s*=\s*[^;]*[▶⏸]/.test(html));
+ok("play icon is defined once as a constant", /var ICON_PLAY=/.test(html));
+ok("pause icon is defined once as a constant", /var ICON_PAUSE=/.test(html));
+ok("setPlayIcon keeps the accessible name in sync",
+   /btn\.setAttribute\("aria-label",playing\?"Pause":"Play"\)/.test(html));
+ok("play button centres with grid, not line-height",
+   /\.playbtn\{[^}]*display:grid; place-items:center/.test(html));
+ok("play icon scales with the button (relative size)",
+   /\.playbtn \.ico\{width:44%; height:44%/.test(html));
+ok("play button has a focus ring", /\.playbtn:focus-visible\{outline/.test(html));
+ok("dock buttons pair icon with label", /\.with-ico\{display:inline-flex/.test(html));
+ok("theatre play button is initialised", /setPlayIcon\(tplay,false\)/.test(html));
 
 /* ---------- 2. Runtime ---------- */
 console.log("\n[runtime]");

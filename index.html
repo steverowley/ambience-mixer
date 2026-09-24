@@ -112,6 +112,10 @@
   button.primary:hover{filter:brightness(1.06); box-shadow:0 0 26px -6px var(--accent)}
   .pill{border-radius:999px; padding:9px 18px; font-size:13px}
   .ghost{background:transparent; border-color:var(--line-soft)}
+  /* Label buttons that carry a leading icon: the icon is optically sized to
+     the cap height, not the line box, so it sits on the text baseline. */
+  .with-ico{display:inline-flex; align-items:center; gap:8px}
+  .with-ico .ico{width:14px; height:14px; fill:currentColor; flex-shrink:0}
 
   .wrap{max-width:1060px; margin:0 auto; padding:36px 28px 0}
 
@@ -181,11 +185,27 @@
   .status{font-size:11.5px; color:var(--muted)}
   .status .live{color:var(--accent-glow)}
   .status .gone{color:var(--warm)}
-  .playbtn{flex-shrink:0; width:46px; height:46px; border-radius:50%; padding:0; font-size:16px;
-    display:flex; align-items:center; justify-content:center; background:var(--glass-hi);
-    border:1px solid var(--line);}
-  .layer.playing .playbtn{background:radial-gradient(circle at 35% 30%, rgba(169,208,224,.95), rgba(138,180,201,.9));
-    color:#0f1420; border-color:transparent; box-shadow:0 0 22px -4px var(--accent);}
+  /* ---------- Play / pause button ----------
+     grid + place-items:center centres the SVG exactly; the icon is sized in
+     ems so it scales with the button (46px on cards, 42px in theatre). */
+  .playbtn{flex-shrink:0; width:46px; height:46px; border-radius:50%; padding:0;
+    display:grid; place-items:center; background:var(--glass-hi);
+    border:1px solid var(--line); color:var(--text);
+    transition:transform .2s var(--ease), background .25s var(--ease),
+               border-color .25s var(--ease), box-shadow .25s var(--ease);}
+  .playbtn .ico{width:44%; height:44%; fill:currentColor; display:block;
+    transition:transform .2s var(--ease)}
+  .playbtn:hover{border-color:rgba(138,180,201,.55); background:rgba(138,180,201,.16)}
+  .playbtn:hover .ico{transform:scale(1.06)}
+  .playbtn:active{transform:scale(.94)}
+  .playbtn:focus-visible{outline:3px solid var(--accent); outline-offset:3px}
+  .layer.playing .playbtn{
+    background:radial-gradient(circle at 35% 28%, rgba(169,208,224,.98), rgba(138,180,201,.92));
+    color:#0f1420; border-color:transparent;
+    box-shadow:0 0 22px -4px var(--accent), inset 0 1px 0 rgba(255,255,255,.45);}
+  .layer.playing .playbtn:hover{filter:brightness(1.05)}
+  /* An unavailable layer cannot be played; say so rather than bounce. */
+  .layer.gone .playbtn{opacity:.4; cursor:not-allowed}
 
   .ctl{margin-top:20px}
   .ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px}
@@ -452,7 +472,7 @@
 <div class="shade" id="shade"></div>
 <div class="catch" id="catch"></div>
 <div class="tbar" id="tbar">
-  <button class="playbtn" id="tplay" style="width:42px; height:42px">▶</button>
+  <button class="playbtn" id="tplay" style="width:42px; height:42px" aria-label="Play" title="Play"></button>
   <span class="tname" id="tname"></span>
   <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60" aria-label="Visualiser layer volume"></div>
   <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35" aria-label="Screen dim level"></div>
@@ -462,8 +482,8 @@
 </div>
 
 <div class="dock">
-  <button class="primary" id="btnPlayAll">▶ Play all</button>
-  <button id="btnStopAll">Pause all</button>
+  <button class="primary with-ico" id="btnPlayAll"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>Play all</button>
+  <button id="btnStopAll" class="with-ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>Pause all</button>
   <button id="btnClearAll">Clear all</button>
   <label class="toggle dock-toggle" title="Stops the screen sleeping, so audio keeps playing on mobile">
     <input type="checkbox" id="btnWake"><span class="sw"></span>
@@ -729,6 +749,24 @@
   var SYNTH_ICON='<svg viewBox="0 0 48 48" width="16" height="16" fill="none" '+
     'stroke="currentColor" stroke-width="3.4" stroke-linecap="round">'+
     '<path d="M5 24c4 0 4-9 8-9s4 18 8 18 4-18 8-18 4 9 8 9"/></svg>';
+
+  /* Play/pause as geometry, not typography. The text glyphs ▶ and ⏸ carry
+     asymmetric side-bearings, so ▶ always sits left of centre no matter how
+     the box is aligned, and both render differently per platform font.
+     These are drawn on a 24-box with the triangle's centroid — not its
+     bounding box — placed at the centre, which is what the eye reads as
+     centred. */
+  var ICON_PLAY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+    '<path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>';
+  var ICON_PAUSE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+    '<rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/>'+
+    '<rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>';
+  function setPlayIcon(btn,playing){
+    if(!btn) return;
+    btn.innerHTML=playing?ICON_PAUSE:ICON_PLAY;
+    btn.setAttribute("aria-label",playing?"Pause":"Play");
+    btn.title=playing?"Pause":"Play";
+  }
 
   /* A bare 11-char ID is valid input, but only when the whole string is one.
      The old last-resort /([a-zA-Z0-9_-]{11})/ matched any 11 word characters
@@ -1088,7 +1126,7 @@
               ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
               : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
             '<div class="meta"><p class="title" id="title_'+L.uid+'"></p><div class="status" id="status_'+L.uid+'"></div></div>'+
-            '<button class="playbtn" id="pp_'+L.uid+'">▶</button>'+
+            '<button class="playbtn" id="pp_'+L.uid+'" aria-label="Play" title="Play">'+ICON_PLAY+'</button>'+
           '</div>'+
           '<div class="ctl"><div class="lab"><span id="vname_'+L.uid+'">Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
             '<input type="range" min="0" max="100" id="vol_'+L.uid+'" aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"></div>'+
@@ -1217,8 +1255,8 @@
     el.classList.toggle("playing",L.playing && !L.unavailable);
     el.classList.toggle("gone",!!L.unavailable);
     el.classList.toggle("silent",!L.unavailable && (L.muted || (soloLayer && soloLayer!==L)));
-    var pp=document.getElementById("pp_"+L.uid); if(pp) pp.textContent=L.playing?"⏸":"▶";
-    if(theatreLayer===L) tplay.textContent=L.playing?"⏸":"▶";
+    var pp=document.getElementById("pp_"+L.uid); setPlayIcon(pp,L.playing);
+    if(theatreLayer===L) setPlayIcon(tplay,L.playing);
     var s=document.getElementById("status_"+L.uid); if(!s) return;
     if(L.unavailable){ s.innerHTML='<span class="gone"></span>';
       s.firstChild.textContent=L.unavailable; return; }
@@ -1789,6 +1827,7 @@
 
   document.body.classList.toggle("hidden-tab",document.hidden);
   fillSlider(tvol); fillSlider(tdim); applyFit();
+  setPlayIcon(tplay,false);
   renderSynths(); renderPresets(); renderMixes();
   /* A shared link is an explicit request and wins over the stored session. */
   if(!loadFromHash()) restoreSession();
