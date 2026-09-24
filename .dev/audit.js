@@ -94,6 +94,7 @@ function mkEl(tag) {
     textContent: "", value: "", checked: false, hidden: false, title: "",
     addEventListener(ev, fn){ (this._listeners[ev] = this._listeners[ev] || []).push(fn); },
     setAttribute(k,v){ this._attrs[k]=v; }, getAttribute(k){ return this._attrs[k]; },
+    removeAttribute(k){ delete this._attrs[k]; if(k==="title") this.title=""; },
     appendChild(c){ this.children.push(c); c.parentNode = this; return c; },
     remove(){ if(this.parentNode){ const i=this.parentNode.children.indexOf(this); if(i>=0) this.parentNode.children.splice(i,1); } },
     _all(){ const out=[]; (function walk(n){ n.children.forEach(c=>{ out.push(c); walk(c); }); })(this); return out; },
