@@ -114,7 +114,7 @@ function mkEl(tag) {
  "btnClearAll","btnWake","masterVol","btnSave","btnShare","btnExport","btnImport","fileImport",
  "sleepSel","timerLeft","shade","catch","tbar","tname","tvol","tdim","tplay","tfit","texit",
  "hint","noMixes","resume","resumeCount","btnResume","btnDiscard","dlg","dlgTitle","dlgBody",
- "dlgInput","dlgOk","dlgCancel","tall","tallLabel","synths"
+ "dlgInput","dlgOk","dlgCancel","tall","tallLabel","synths","update","btnUpdate","btnUpdateLater"
 ].forEach(id => { byId[id] = mkEl("div"); byId[id].id = id; });
 byId.masterVol.value="100"; byId.masterVol.min="0"; byId.masterVol.max="100";
 byId.tvol.value="60"; byId.tvol.min="0"; byId.tvol.max="100";

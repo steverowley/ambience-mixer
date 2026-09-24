@@ -457,6 +457,12 @@
     <h3>A quiet canvas</h3>
     <p>Tap a starter preset below, or paste any YouTube link to begin your soundscape.</p>
   </div>
+  <div id="update" class="resume" hidden>
+    <span><b>A new version is ready.</b> Your mix keeps playing — reload when it suits you.</span>
+    <div class="spacer"></div>
+    <button class="pill primary" id="btnUpdate">Reload now</button>
+    <button class="pill ghost" id="btnUpdateLater">Later</button>
+  </div>
 
   <div class="label">Starter presets</div>
   <div class="presets" id="presets"></div>
@@ -1063,7 +1069,7 @@
       tbar=document.getElementById("tbar"), tname=document.getElementById("tname"),
       tvol=document.getElementById("tvol"), tdim=document.getElementById("tdim"),
       tplay=document.getElementById("tplay"), tfit=document.getElementById("tfit"),
-      tall=document.getElementById("tall"), tallLabel=document.getElementById("tallLabel");
+      tall=document.getElementById("tall");
 
   /* The dock is hidden in theatre mode, so without this the only transport is
      the visualised layer's own button — every other layer keeps playing with
@@ -1931,11 +1937,54 @@
   refreshEmpty(); updateMediaSession();
   window.addEventListener("hashchange",function(){ loadFromHash(); });
 
+  /* Offered, never forced: reloading mid-session would cut the audio and lose
+     whatever fade is in progress. The session is flushed first so the mix
+     comes back exactly as it was. */
+  function showUpdate(){
+    var bar=document.getElementById("update");
+    if(bar && bar.hidden) bar.hidden=false;
+  }
+  document.getElementById("btnUpdate").addEventListener("click",function(){
+    flushSession();
+    if(!("serviceWorker" in navigator)){ location.reload(); return; }
+    navigator.serviceWorker.getRegistration().then(function(reg){
+      var done=false;
+      function go(){ if(!done){ done=true; location.reload(); } }
+      /* controllerchange fires once the new worker takes over, so reloading
+         then gets the fresh build rather than racing it. The timeout is the
+         fallback for when there is no waiting worker at all. */
+      navigator.serviceWorker.addEventListener("controllerchange",go);
+      if(reg && reg.waiting) reg.waiting.postMessage("skipWaiting");
+      setTimeout(go,1200);
+    }).catch(function(){ location.reload(); });
+  });
+  document.getElementById("btnUpdateLater").addEventListener("click",function(){
+    document.getElementById("update").hidden=true;
+  });
+
   /* Offline shell. Registered late so it never competes with the YouTube API
      for the initial load, and only over https/localhost where SW is allowed. */
   if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost")){
     window.addEventListener("load",function(){
-      navigator.serviceWorker.register("/sw.js").catch(function(){});
+      navigator.serviceWorker.register("/sw.js").then(function(reg){
+        /* This app is opened once and left running for hours, often installed
+           to a home screen. Without this it can sit on a cached build
+           indefinitely and quietly miss every fix — which is invisible to the
+           person using it, because nothing looks broken. */
+        function watch(sw){
+          if(!sw) return;
+          sw.addEventListener("statechange",function(){
+            if(sw.state==="installed" && navigator.serviceWorker.controller) showUpdate();
+          });
+        }
+        watch(reg.waiting);
+        reg.addEventListener("updatefound",function(){ watch(reg.installing); });
+        /* Re-check when the tab is brought back, not only on load: a phone
+           may keep this page alive for days. */
+        document.addEventListener("visibilitychange",function(){
+          if(!document.hidden) reg.update().catch(function(){});
+        });
+      }).catch(function(){});
     });
   }
 })();
