@@ -131,7 +131,7 @@ function mkEl(tag) {
   "sleepSel","timerLeft","shade","catch","tbar","tname","tvol","tdim","tplay","tfit","texit",
   "hint","noMixes","resume","resumeCount","btnResume","btnDiscard",
   "dlg","dlgTitle","dlgBody","dlgInput","dlgOk","dlgCancel",
-  "tall","tallLabel","synths","update","btnUpdate","btnUpdateLater"
+  "tall","tallLabel","synths","update","btnUpdate","btnUpdateLater","iosNote","btnIosOk"
 ].forEach(id => { byId[id] = mkEl("div"); byId[id].id = id; });
 byId.masterVol.value="100"; byId.masterVol.min="0"; byId.masterVol.max="100";
 byId.tvol.value="60"; byId.tvol.min="0"; byId.tvol.max="100";
@@ -526,6 +526,20 @@ ok("Play all returns when playback stops", !dis("btnPlayAll"));
 ok("Pause all disables again", dis("btnStopAll"));
 T.removeLayer(cl);
 ok("removing the last layer disables everything again", dis("btnPlayAll") && dis("btnSave"));
+
+// ---- iOS platform handling ----
+console.log("\n[ios]");
+ok("iOS is detected", /iPad\|iPhone\|iPod/.test(html));
+ok("iPadOS masquerading as Mac is caught", /Macintosh.*maxTouchPoints>1/.test(html));
+ok("audio is primed on first touch", /\["touchend","pointerdown","keydown"\]/.test(html));
+ok("priming is passive so it never blocks scrolling", /primeAudio,\{passive:true\}/.test(html));
+ok("autoplay is not attempted for iOS video layers", /if\(IS_IOS\)\{ L\.playing=false; renderPlaying\(L\); \}/.test(html));
+ok("the volume slider is disabled for iOS video layers", /IS_IOS && !synth\)\?' disabled/.test(html));
+ok("status does not claim a percentage it cannot set", /IS_IOS && !isSynth\(L\)\) \? "full volume \(iOS\)"/.test(html));
+ok("the iOS notice explains the cause", /Apple does not allow web pages to set the volume/.test(html));
+ok("the iOS notice is dismissible and remembered", /ambience\.iosNote/.test(html));
+ok("the iOS notice is hidden by default", /id="iosNote" class="resume" hidden/.test(html));
+ok("synth layers keep working volume on iOS", !/IS_IOS[\s\S]{0,80}isSynth\(L\)\)[\s\S]{0,40}disabled/.test(html));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
