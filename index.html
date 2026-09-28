@@ -218,6 +218,8 @@
   .ctl .lab b{color:var(--text); font-weight:600; font-size:12.5px; font-variant-numeric:tabular-nums}
 
   /* ---------- Sliders ---------- */
+  input[type=range]:disabled{opacity:.4; cursor:not-allowed}
+  input[type=range]:disabled::-webkit-slider-thumb{cursor:not-allowed}
   input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:100%; height:22px;
     background:transparent; cursor:pointer;}
   input[type=range]::-webkit-slider-runnable-track{height:6px; border-radius:999px;
@@ -468,6 +470,14 @@
     <button class="pill primary" id="btnUpdate">Reload now</button>
     <button class="pill ghost" id="btnUpdateLater">Later</button>
   </div>
+  <div id="iosNote" class="resume" hidden>
+    <span><b>On iPhone and iPad, use the built-in sounds.</b>
+      Apple does not allow web pages to set the volume of a YouTube video, so
+      video layers all play at full and cannot be balanced. The built-in
+      sounds below are generated on your device and mix properly.</span>
+    <div class="spacer"></div>
+    <button class="pill ghost" id="btnIosOk">Got it</button>
+  </div>
 
   <div class="label">Starter presets</div>
   <div class="presets" id="presets"></div>
@@ -583,6 +593,27 @@
      One AudioContext is shared; each layer owns its own small graph ending
      in a GainNode, so effectiveVol() drives synth and video layers
      identically and mute/solo/fade need no special case. */
+  /* iOS is a different machine for audio, in two ways that change behaviour
+     rather than just degrade it:
+
+     1. Volume is not settable from JavaScript. Apple's own docs: "the audio
+        level is always under the user's physical control. The volume property
+        is not settable in JavaScript. Reading it always returns 1." So
+        setVolume() on a YouTube player silently does nothing — which breaks
+        the entire premise of a mixer, because every layer plays at full.
+     2. Each media element needs its own user gesture to start. We call
+        playVideo() from onReady, which arrives asynchronously long after the
+        tap, so the gesture is spent and nothing plays at all.
+
+     Built-in sounds have neither problem: Web Audio gain nodes are fully
+     controllable and one unlocked context covers every layer. */
+  var IS_IOS=(function(){
+    var ua=navigator.userAgent||"";
+    /* iPadOS 13+ reports as Macintosh, so touch points are the real tell. */
+    return /iPad|iPhone|iPod/.test(ua) ||
+           (/Macintosh/.test(ua) && navigator.maxTouchPoints>1);
+  })();
+
   var audioCtx=null;
   function ac(){
     if(!audioCtx){
@@ -594,6 +625,16 @@
     if(audioCtx.state==="suspended"){ try{ audioCtx.resume(); }catch(_){} }
     return audioCtx;
   }
+  /* iOS suspends the context aggressively — on tab switch, on a call, on
+     locking the screen. Resuming only when a layer starts is not enough, so
+     the first touch anywhere unlocks it and every later visibility change
+     re-checks it. Cheap, and it removes a whole class of "no sound". */
+  function primeAudio(){
+    try{ var c=ac(); if(c && c.state==="suspended") c.resume(); }catch(_){}
+  }
+  ["touchend","pointerdown","keydown"].forEach(function(ev){
+    document.addEventListener(ev,primeAudio,{passive:true});
+  });
 
   var SYNTHS=[
     {id:"rain",   name:"Rain",        cue:"steady rainfall"},
@@ -864,7 +905,15 @@
               }catch(_){}
             }
             syncTitleFromPlayer(L); renderTitle(L);
-            if(autoplay) playLayer(L); else renderPlaying(L);
+            if(autoplay){
+              /* On iOS the gesture that created this player is long spent by
+                 the time onReady arrives, so playVideo() is refused silently
+                 and the card sits there claiming to play. Better to show it
+                 paused and let one tap start it, which is a gesture iOS
+                 honours. */
+              if(IS_IOS){ L.playing=false; renderPlaying(L); }
+              else playLayer(L);
+            } else renderPlaying(L);
           },
           onStateChange:function(e){
             if(e.data===YT.PlayerState.ENDED){
@@ -1194,7 +1243,9 @@
             '<button class="playbtn" id="pp_'+L.uid+'" aria-label="Play" title="Play">'+ICON_PLAY+'</button>'+
           '</div>'+
           '<div class="ctl"><div class="lab"><span id="vname_'+L.uid+'">Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
-            '<input type="range" min="0" max="100" id="vol_'+L.uid+'" aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"></div>'+
+            '<input type="range" min="0" max="100" id="vol_'+L.uid+'"'+
+              ((IS_IOS && !synth)?' disabled title="iOS does not allow web pages to change a video\'s volume"':'')+
+              ' aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"></div>'+
           (synth
             ? '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Tone</span><b id="slab_'+L.uid+'"></b></div>'+
               '<input type="range" min="0" max="100" id="tone_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'
@@ -1331,8 +1382,11 @@
       s.firstChild.textContent=L.unavailable; return; }
     if(!L.ready){ s.innerHTML="preparing…"; return; }
     var why = L.muted ? " · muted" : (soloLayer && soloLayer!==L) ? " · silenced by solo" : "";
+    /* Saying "76%" on iOS would be a lie — the slider cannot move a YouTube
+       player's volume there, so the number is meaningless for video layers. */
+    var vol = (IS_IOS && !isSynth(L)) ? "full volume (iOS)" : L.volume+"%";
     var mid = isSynth(L) ? toneLabel(L.tone) : L.speed.toFixed(2)+"×";
-    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+mid+" · "+L.volume+"%"+why;
+    s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+mid+" · "+vol+why;
   }
   function refreshEmpty(){
     document.getElementById("empty").style.display=layers.length?"none":"block";
@@ -1982,6 +2036,17 @@
   syncWake();
   refreshEmpty(); updateMediaSession();
   window.addEventListener("hashchange",function(){ loadFromHash(); });
+
+  document.getElementById("btnIosOk").addEventListener("click",function(){
+    document.getElementById("iosNote").hidden=true;
+    try{ localStorage.setItem("ambience.iosNote","1"); }catch(_){}
+  });
+  /* Shown once, and only on the platform it applies to — a warning that
+     reappears every visit is noise. */
+  if(IS_IOS){
+    var seen=null; try{ seen=localStorage.getItem("ambience.iosNote"); }catch(_){}
+    if(!seen) document.getElementById("iosNote").hidden=false;
+  }
 
   /* Offered, never forced: reloading mid-session would cut the audio and lose
      whatever fade is in progress. The session is flushed first so the mix

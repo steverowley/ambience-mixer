@@ -34,6 +34,11 @@ jobs:
       - name: Bug audit
         run: node .dev/audit.js --ci
 
+      # Runs the app under an iPhone user agent and asserts the platform
+      # adaptations fire — and that desktop behaviour is untouched.
+      - name: iOS behaviour
+        run: node .dev/ios.js
+
   assets:
     name: Static assets
     runs-on: ubuntu-latest
