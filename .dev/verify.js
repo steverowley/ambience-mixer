@@ -26,7 +26,8 @@ ok("renderMixes has no innerHTML for names", !/el\.innerHTML='<span class="name"
 ok("loop checkbox focusable", /\.toggle input\{position:absolute; width:1px/.test(html));
 ok("extractId catch-all removed", !/m=input\.match\(\/\(\[a-zA-Z0-9_-\]\{11\}\)\/\)/.test(html));
 ok("aurora pauses when hidden", /body\.hidden-tab \.aurora::before/.test(html));
-ok("random start offset", /L\.offset=Math\.random\(\)\*\(d-30\)/.test(html));
+/* Random start offsets were deliberately removed: layers must begin at the
+   start of their source every time. See the [start position] block. */
 ok("session persistence", /SESSION_KEY="ambience\.session\.v1"/.test(html));
 ok("manifest linked", /<link rel="manifest"/.test(html));
 ok("service worker registered", /navigator\.serviceWorker\.register/.test(html));
@@ -540,6 +541,26 @@ ok("the iOS notice explains the cause", /Apple does not allow web pages to set t
 ok("the iOS notice is dismissible and remembered", /ambience\.iosNote/.test(html));
 ok("the iOS notice is hidden by default", /id="iosNote" class="resume" hidden/.test(html));
 ok("synth layers keep working volume on iOS", !/IS_IOS[\s\S]{0,80}isSynth\(L\)\)[\s\S]{0,40}disabled/.test(html));
+
+// ---- start position ----
+console.log("\n[start position]");
+ok("every layer is seeked to the beginning", /seekTo\(0,true\)/.test(html));
+ok("no random start offset remains", !/Math\.random\(\)\*\(d-30\)/.test(html));
+ok("the offset/noShuffle plumbing is gone", !/noShuffle/.test(html));
+ok("a loop restart returns to the beginning", /seekTo\(0\)/.test(html));
+// A pasted timecode must never decide where the mix starts.
+[["https://www.youtube.com/watch?v=x7SQaDTSrVg&t=120", "&t= seconds"],
+ ["https://www.youtube.com/watch?v=x7SQaDTSrVg&t=1h20m5s", "&t= h/m/s"],
+ ["https://youtu.be/x7SQaDTSrVg?t=3600", "youtu.be ?t="],
+ ["https://youtu.be/x7SQaDTSrVg?si=abc&t=99", "share link with ?si= and &t="],
+ ["https://www.youtube.com/watch?t=90&v=x7SQaDTSrVg", "timecode before v="],
+ ["https://www.youtube.com/embed/x7SQaDTSrVg?start=240", "embed ?start="],
+ ["https://www.youtube.com/live/x7SQaDTSrVg?t=55", "live ?t="],
+ ["https://www.youtube.com/watch?v=x7SQaDTSrVg#t=30", "fragment #t="]
+].forEach(([url, label]) => {
+  ok("timecode ignored: " + label, T.extractId(url) === "x7SQaDTSrVg",
+     "got " + T.extractId(url));
+});
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
