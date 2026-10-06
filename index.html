@@ -867,8 +867,7 @@
                                 :("Loading… ("+cfg.videoId+")")),
       volume:cfg.volume!=null?cfg.volume:60, speed:cfg.speed!=null?cfg.speed:1,
       loop:cfg.loop!=null?cfg.loop:true, playing:false, player:null, ready:false,
-      unavailable:null, rates:DEFAULT_RATES, muted:!!cfg.muted, wa:null,
-      offset:cfg.offset!=null?cfg.offset:null, noShuffle:!!cfg.noShuffle};
+      unavailable:null, rates:DEFAULT_RATES, muted:!!cfg.muted, wa:null};
     layers.push(L); renderLayers();
     if(isSynth(L)){
       /* Synthesised layers are ready the moment their graph exists — no
@@ -894,16 +893,11 @@
             try{ var r=e.target.getAvailablePlaybackRates(); if(r&&r.length) L.rates=r; }catch(_){}
             try{ e.target.setVolume(effectiveVol(L)); }catch(_){}
             try{ e.target.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
-            /* Start somewhere random in the source. Without this every layer
-               begins at t=0 on every load, so a preset sounds identical each
-               time and all layers phase-lock together. Most of these sources
-               are 10-hour recordings, so the offset space is enormous. */
-            if(L.offset!=null){ try{ e.target.seekTo(L.offset,true); }catch(_){} }
-            else if(!L.noShuffle){
-              try{ var d=e.target.getDuration();
-                if(d&&d>60){ L.offset=Math.random()*(d-30); e.target.seekTo(L.offset,true); }
-              }catch(_){}
-            }
+            /* Every layer starts at the beginning of its source, every time.
+               A seek is explicit rather than assumed: a retried or re-created
+               player can hold its previous position, and a URL carrying a
+               timecode must not decide where the mix begins. */
+            try{ e.target.seekTo(0,true); }catch(_){}
             syncTitleFromPlayer(L); renderTitle(L);
             if(autoplay){
               /* On iOS the gesture that created this player is long spent by
