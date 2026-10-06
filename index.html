@@ -1425,7 +1425,7 @@
      reported them then, so they match what the player reports back and the card
      never flashes a placeholder.
 
-     Each mix follows one shape, taken from the Indoor Pool blend:
+     Each mix follows one shape, first worked out in the Indoor pool blend:
        bed    65-76  the thing you actually notice
        body   36-50  fills the middle, rarely identified by ear
        colour 20-32  intermittent detail - plates, birds, a purr
@@ -1435,6 +1435,19 @@
      so 0.75x or 0.5x lengthens and deepens a layer without sounding slowed:
      thunder rolls further away, ice becomes a hull, a clock stops nagging. */
   var PRESETS=[
+    /* The original blend, kept at the volumes it was built with rather than
+       forced into the shape above — the river sits on top here by choice.
+       Every other source runs 3-12 hours; "The Cool River" is 3m12s, so at
+       0.75x it restarts about every four minutes. */
+    {name:"Indoor pool", cue:"pool · locker room · showers · river",
+     note:"A big tiled room with water in it — showers running somewhere behind you, and a river laid underneath to give it depth.",
+     layers:[
+      {id:"aJK6xiAx_Mg",v:75,s:1,   t:"Schwimmbad Geräusche zum Einschlafen und Entspannen (4 Stunden)"},
+      {id:"58R8J9OIxdI",v:89,s:0.75,t:"The Cool River"},
+      {id:"LmpR4O9-0z4",v:60,s:1,   t:"Прямая трансляция Аквапарк \"Лебяжий\""},
+      {id:"u3z2PO8W9ww",v:59,s:1,   t:"Bathroom Ambience • Locker Room • Gym Background Sounds ~ Relax, Study or Sleep | 3 hours ASMR"},
+      {id:"OuYtZhrFo4U",v:22,s:1,   t:"Relaxing Locker Room Shower Sounds 10 Hours | Relaxation, Sleep, Study, Meditation"}]},
+
     {name:"Rainy night", cue:"rain · thunder · wind · clock",
      note:"Rain on the glass, thunder a few streets away, and a clock you stop hearing after a minute.",
      layers:[

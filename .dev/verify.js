@@ -220,7 +220,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 const probe = app.replace(/\}\)\(\);\s*$/,
- `  globalThis.__t={extractId:extractId, effectiveVol:effectiveVol, perceptual:perceptual,
+ `  globalThis.__t={extractId:extractId, PRESETS:PRESETS, effectiveVol:effectiveVol, perceptual:perceptual,
       setFade:function(v){fadeFactor=v;}, addLayer:addLayer, layers:function(){return layers;},
       renderMixes:renderMixes, loadMixes:loadMixes, storeMixes:storeMixes,
       encodeMix:encodeMix, decodeMix:decodeMix, validLayer:validLayer, cleanLayer:cleanLayer,
@@ -561,6 +561,29 @@ ok("a loop restart returns to the beginning", /seekTo\(0\)/.test(html));
   ok("timecode ignored: " + label, T.extractId(url) === "x7SQaDTSrVg",
      "got " + T.extractId(url));
 });
+
+// ---- Indoor pool preset ----
+console.log("\n[indoor pool]");
+const pool = T.PRESETS.find(p => p.name === "Indoor pool");
+ok("the preset exists", !!pool);
+ok("it is offered first", T.PRESETS[0].name === "Indoor pool");
+ok("it has five layers", pool && pool.layers.length === 5, pool && pool.layers.length);
+ok("every id is a bare 11-character video id — no timecodes",
+   pool.layers.every(l => /^[A-Za-z0-9_-]{11}$/.test(l.id)));
+ok("the blend matches the shared link exactly", (function(){
+  const want = { aJK6xiAx_Mg:[75,1], u3z2PO8W9ww:[59,1], OuYtZhrFo4U:[22,1],
+                 "58R8J9OIxdI":[89,0.75], "LmpR4O9-0z4":[60,1] };
+  return pool.layers.length === Object.keys(want).length &&
+         pool.layers.every(l => want[l.id] && want[l.id][0] === l.v && want[l.id][1] === l.s);
+})());
+ok("every layer carries its real title", pool.layers.every(l => l.t && l.t.length > 3));
+ok("the preset round-trips through a share link", (function(){
+  const enc = T.encodeMix(pool.layers.map(l => ({
+    kind:"yt", videoId:l.id, volume:l.v, speed:l.s, loop:true, muted:false })));
+  const back = T.decodeMix(enc);
+  return back.length === 5 && back.every((b,i) => b.videoId === pool.layers[i].id &&
+    b.volume === pool.layers[i].v && b.speed === pool.layers[i].s);
+})());
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
