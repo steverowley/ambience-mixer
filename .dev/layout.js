@@ -162,7 +162,8 @@ ok("no stale aria-pressed button remains",
    !/id="btnWake" aria-pressed/.test(html));
 ok("handler listens for change, not click",
    /getElementById\("btnWake"\)\.addEventListener\("change"/.test(html));
-ok("syncWake drives the checkbox", /if\(b\) b\.checked=wakeWanted/.test(html));
+ok("syncWake drives the checkbox", /b\.checked=HAS_WAKE&&wakeWanted/.test(html));
+ok("the switch is disabled where Wake Lock is unsupported", /b\.disabled=!HAS_WAKE/.test(html));
 
 /* ---- aria state on the toggle chips ---- */
 console.log("\n[a11y]");

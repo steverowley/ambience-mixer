@@ -19,7 +19,8 @@ const IPHONE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " +
 const MAC_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
-function run(ua, touchPoints) {
+function run(ua, touchPoints, opts) {
+  opts = opts || {};
   const byId = {};
   const listeners = {};
   function mkEl(tag) {
@@ -70,7 +71,7 @@ function run(ua, touchPoints) {
    "sleepSel","timerLeft","shade","catch","tbar","tname","tvol","tdim","tplay","tfit","texit",
    "hint","noMixes","resume","resumeCount","btnResume","btnDiscard","dlg","dlgTitle","dlgBody",
    "dlgInput","dlgOk","dlgCancel","tall","tallLabel","synths","update","btnUpdate",
-   "btnUpdateLater","iosNote","btnIosOk"
+   "btnUpdateLater","iosNote","btnIosOk","wakeLabel"
   ].forEach(id => { byId[id] = mkEl("div"); byId[id].id = id; });
   byId.masterVol.value="100"; byId.masterVol.min="0"; byId.masterVol.max="100";
   byId.tvol.value="60"; byId.tdim.value="35"; byId.sleepSel.value="0";
@@ -89,9 +90,11 @@ function run(ua, touchPoints) {
       querySelectorAll: () => [] },
     localStorage: { getItem: k => (k in store ? store[k] : null),
       setItem: (k,v) => { store[k]=String(v); }, removeItem: k => { delete store[k]; } },
-    navigator: { userAgent: ua, maxTouchPoints: touchPoints,
+    navigator: Object.assign({ userAgent: ua, maxTouchPoints: touchPoints,
       mediaSession:{ metadata:null, playbackState:"none", setActionHandler(){} },
       clipboard:{ writeText:()=>Promise.resolve() } },
+      /* Only Chromium ships Wake Lock; Safari has never had it. */
+      opts.wakeLock ? { wakeLock:{ request:()=>Promise.resolve({release(){}}) } } : {}),
     MediaMetadata: function(o){ Object.assign(this,o); },
     AudioContext: function(){
       const mk=(t)=>{const n={type:t,connect(x){return x;},disconnect(){},start(){},stop(){}};return n;};
@@ -155,6 +158,7 @@ function run(ua, touchPoints) {
   vm.runInContext(probe, sandbox, { timeout: 5000 });
 
   return { T: sandbox.__t, byId, store, listeners, ctx: () => sandbox,
+           dock,
            played: () => played, resumes: () => ctxResumes,
            /* Deliver the onReady callbacks the YouTube API would have sent. */
            drainReady: () => { sandbox.__t.apiArrive();
@@ -204,6 +208,42 @@ ok("a video layer autoplays as before", dv.playing === true, "playing=" + dv.pla
 ok("playVideo() was actually called", mac.played() > 0);
 ok("its volume slider is enabled", mac.byId["vol_" + dv.uid] &&
    !mac.byId["vol_" + dv.uid].disabled);
+
+console.log("\n=== Android: full capability, must NOT take the iOS path ===\n");
+const ANDROIDS = {
+  "Chrome on Android": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36",
+  "Samsung Internet": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/23.0 Chrome/115.0.0.0 Mobile Safari/537.36",
+  "Firefox on Android": "Mozilla/5.0 (Android 14; Mobile; rv:127.0) Gecko/127.0 Firefox/127.0"
+};
+for (const [name, ua] of Object.entries(ANDROIDS)) {
+  /* Touch points are high on Android too — the iPadOS heuristic must not
+     catch it, which it only avoids by also requiring "Macintosh". */
+  const a = run(ua, 5, { wakeLock: true });
+  ok(name + ": not treated as iOS", a.T.isIOS() === false);
+  ok(name + ": no iOS notice", a.byId.iosNote.hidden === true);
+  const al = a.T.addLayer({ videoId: "x7SQaDTSrVg", volume: 70, autoplay: true });
+  a.drainReady();
+  ok(name + ": video layer autoplays", al.playing === true);
+  ok(name + ": volume slider is enabled",
+     a.byId["vol_" + al.uid] && !a.byId["vol_" + al.uid].disabled);
+  ok(name + ": status shows a real percentage",
+     !/full volume \(iOS\)/.test(a.byId["status_" + al.uid].innerHTML || ""));
+  ok(name + ": keep-awake switch is usable", a.byId.btnWake.disabled === false);
+  ok(name + ": keep-awake does not claim the screen will sleep",
+     a.byId.wakeLabel.textContent !== "Screen will sleep");
+}
+
+console.log("\n=== Wake Lock honesty (Safari has no Wake Lock API) ===\n");
+const noWake = run(IPHONE_UA, 5);                 // no wakeLock in navigator
+ok("the switch is disabled when the browser cannot keep the screen awake",
+   noWake.byId.btnWake.disabled === true);
+ok("the label says the screen will sleep rather than claiming otherwise",
+   noWake.byId.wakeLabel.textContent === "Screen will sleep",
+   "got " + noWake.byId.wakeLabel.textContent);
+const withWake = run(MAC_UA, 0, { wakeLock: true });
+ok("the switch works where Wake Lock exists", withWake.byId.btnWake.disabled === false);
+ok("its label reflects state again", withWake.byId.wakeLabel.textContent === "Screen may sleep",
+   "got " + withWake.byId.wakeLabel.textContent);
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
