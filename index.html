@@ -257,6 +257,8 @@
   .toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .25s var(--ease)}
   .toggle input:checked + .sw{background:var(--accent)}
   .toggle input:checked + .sw::after{transform:translateX(16px)}
+  .toggle input:disabled ~ .sw{opacity:.4}
+  .toggle input:disabled ~ #wakeLabel{opacity:.5}
   .toggle input:focus-visible + .sw{outline:3px solid var(--accent); outline-offset:3px}
   .remove{font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:600;
     color:var(--text2); background:transparent; border:1px solid transparent; padding:7px 11px;
@@ -1102,12 +1104,23 @@
      hint text apologised for the exact problem it solves. Now also available
      as a dock toggle for audio-only listening. */
   var wakeWanted=false;
+  /* Safari — desktop and iOS — has never shipped the Wake Lock API, so this
+     control cannot work there. Claiming "Screen staying on" when nothing is
+     holding the screen awake is worse than not offering it. */
+  var HAS_WAKE=("wakeLock" in navigator);
   function syncWake(){
     if(wakeWanted||theatreLayer) requestWake(); else releaseWake();
     var b=document.getElementById("btnWake");
-    if(b) b.checked=wakeWanted;
+    if(b){ b.checked=HAS_WAKE&&wakeWanted; b.disabled=!HAS_WAKE; }
     var lab=document.getElementById("wakeLabel");
-    if(lab) lab.textContent=wakeWanted?"Screen staying on":"Screen may sleep";
+    if(!lab) return;
+    if(!HAS_WAKE){
+      lab.textContent="Screen will sleep";
+      var w=document.querySelector(".dock-toggle");
+      if(w) w.title="This browser cannot keep the screen awake. Audio stops when the screen locks.";
+      return;
+    }
+    lab.textContent=wakeWanted?"Screen staying on":"Screen may sleep";
   }
 
   /* ---------- Theatre mode ----------

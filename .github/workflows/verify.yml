@@ -36,7 +36,7 @@ jobs:
 
       # Runs the app under an iPhone user agent and asserts the platform
       # adaptations fire — and that desktop behaviour is untouched.
-      - name: iOS behaviour
+      - name: Platform behaviour (iOS, Android, desktop)
         run: node .dev/ios.js
 
   assets:
