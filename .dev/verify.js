@@ -585,5 +585,20 @@ ok("the preset round-trips through a share link", (function(){
     b.volume === pool.layers[i].v && b.speed === pool.layers[i].s);
 })());
 
+// ---- battery / thermal ----
+console.log("\n[battery]");
+ok("video starts at the lowest quality", /vq:"tiny"/.test(html));
+ok("the cap is re-asserted when YouTube raises it", /onPlaybackQualityChange:function\(\)\{ applyQuality\(L\); \}/.test(html));
+ok("the visualised layer is allowed real resolution", /theatreLayer===L \? "default" : "tiny"/.test(html));
+ok("quality is set on ready", /applyQuality\(L\);\s*\r?\n\s*\/\* Every layer starts/.test(html));
+ok("leaving the visualiser drops quality again", /if\(was\) applyQuality\(was\)/.test(html));
+ok("the blurred aurora layer is disabled on touch devices",
+   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,260}\.aurora::before\{animation:none; filter:none/.test(html));
+ok("the playing glow stops animating on touch devices",
+   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,400}\.layer\.playing::after\{animation:none/.test(html));
+ok("the grain overlay is dropped on touch devices",
+   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,400}\.grain\{display:none\}/.test(html));
+ok("the battery cost is stated in the UI", /warm a phone/.test(html));
+
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);

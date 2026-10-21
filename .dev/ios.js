@@ -127,12 +127,15 @@ function run(ua, touchPoints, opts) {
      `L.player = new YT.Player(...)` has returned, and firing it synchronously
      would leave L.player unassigned — an artifact, not a real behaviour. */
   let played = 0;
+  let quality = null;
   const pendingReady = [];
   sandbox.YT = { Player: function(id,opts){
       this.opts=opts; this.destroy=()=>{}; this.setVolume=()=>{};
       this.getVideoData=()=>({}); this.playVideo=()=>{ played++; };
       this.pauseVideo=()=>{}; this.setPlaybackRate=()=>{}; this.seekTo=()=>{};
       this.getDuration=()=>36000; this.getPlaybackRate=()=>1;
+      this.getPlaybackQuality=()=>quality;
+      this.setPlaybackQuality=(v)=>{ quality=v; };
       this.getAvailablePlaybackRates=()=>[0.25,0.5,0.75,1,1.25,1.5,1.75,2];
       const self=this;
       if(opts && opts.events && opts.events.onReady){
@@ -151,6 +154,7 @@ function run(ua, touchPoints, opts) {
        primeAudio:primeAudio,ctx:function(){return audioCtx;},
        /* The YouTube API never loads in a stub, so createPlayer parks its work
           in pendingCreates. Running it is what the script's onload would do. */
+       enterTheatre:enterTheatre, exitTheatre:exitTheatre,
        apiArrive:function(){ apiReady=true;
          var q=pendingCreates.slice(); pendingCreates.length=0;
          q.forEach(function(f){ f(); }); }};
@@ -160,6 +164,8 @@ function run(ua, touchPoints, opts) {
   return { T: sandbox.__t, byId, store, listeners, ctx: () => sandbox,
            dock,
            played: () => played, resumes: () => ctxResumes,
+           quality: () => quality,
+           forceQuality: (v) => { quality = v; },
            /* Deliver the onReady callbacks the YouTube API would have sent. */
            drainReady: () => { sandbox.__t.apiArrive();
                                while (pendingReady.length) pendingReady.shift()(); },
@@ -244,6 +250,26 @@ const withWake = run(MAC_UA, 0, { wakeLock: true });
 ok("the switch works where Wake Lock exists", withWake.byId.btnWake.disabled === false);
 ok("its label reflects state again", withWake.byId.wakeLabel.textContent === "Screen may sleep",
    "got " + withWake.byId.wakeLabel.textContent);
+
+console.log("\n=== video quality cap (battery / heat) ===\n");
+const q = run(MAC_UA, 0, { wakeLock: true });
+const ql = q.T.addLayer({ videoId: "x7SQaDTSrVg", volume: 70, autoplay: true });
+q.drainReady();
+ok("the player is created asking for the lowest quality",
+   ql.player && ql.player.opts.playerVars.vq === "tiny");
+ok("quality was actually set on the player", q.quality() === "tiny",
+   "got " + q.quality());
+/* YouTube raising quality unprompted must be corrected. */
+q.forceQuality("hd1080");
+ql.player.opts.events.onPlaybackQualityChange({ target: ql.player });
+ok("an unprompted quality rise is pulled back down", q.quality() === "tiny",
+   "got " + q.quality());
+q.T.enterTheatre(ql);
+ok("the visualised layer is given real resolution", q.quality() === "default",
+   "got " + q.quality());
+q.T.exitTheatre();
+ok("leaving the visualiser caps it again", q.quality() === "tiny",
+   "got " + q.quality());
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");
 process.exit(fail ? 1 : 0);
