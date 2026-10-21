@@ -421,6 +421,21 @@
     .foot-row{gap:6px}
     .tvbtn,.remove{padding:7px 9px; letter-spacing:.06em}
   }
+  /* Phones and tablets: the aurora's moving layer is a 95px blur over a
+     surface 150% of the viewport, and it rotates and scales — so the
+     compositor re-rasterises that blurred surface continuously, for hours,
+     on battery. The static radial gradients underneath carry the same look
+     and are painted once. The playing glow goes the same way: five animated
+     layers is real GPU work for decoration nobody is looking at while they
+     sleep. */
+  @media (hover:none) and (pointer:coarse){
+    .aurora::before{animation:none; filter:none; opacity:.18;
+      background:radial-gradient(60% 60% at 50% 40%, #3b4e86 0%, transparent 70%)}
+    .brand .orb{animation:none}
+    .layer.playing::after{animation:none; opacity:.5}
+    .grain{display:none}
+  }
+
   @media (prefers-reduced-motion: reduce){
     .aurora::before,.brand .orb,.layer.playing::after{animation:none !important}
     *,*::before,*::after{transition-duration:.01ms !important}
@@ -494,7 +509,10 @@
     <b>Built-in sounds</b> are generated in the browser — no download, no network,
     and they keep playing offline and with the screen off. Each has a Tone control
     instead of Speed. <b>YouTube layers</b> bring anything else, with speed and a
-    full-screen visualiser, but need a connection.
+    full-screen visualiser, but need a connection — and they stream and decode
+    video even though only the audio is used, so several at once will warm a phone
+    and drain it. Video is held at the lowest quality unless you open the
+    visualiser; on battery, prefer the built-in sounds.
     Add this to your phone's home screen and it runs as its own app.
     Audio begins after your first tap. Speed steps in 0.25× increments — that's the finest
     YouTube's player allows. Mixing several videos works best with the screen on; turn on
@@ -888,13 +906,14 @@
   function createPlayer(L,autoplay){
     var make=function(){
       L.player=new YT.Player("yt_"+L.uid,{ host:"https://www.youtube.com", videoId:L.videoId,
-        playerVars:{autoplay:autoplay?1:0,controls:0,disablekb:1,fs:0,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,origin:window.location.origin},
+        playerVars:{autoplay:autoplay?1:0,controls:0,disablekb:1,fs:0,modestbranding:1,playsinline:1,rel:0,iv_load_policy:3,vq:"tiny",origin:window.location.origin},
         events:{
           onReady:function(e){
             L.ready=true;
             try{ var r=e.target.getAvailablePlaybackRates(); if(r&&r.length) L.rates=r; }catch(_){}
             try{ e.target.setVolume(effectiveVol(L)); }catch(_){}
             try{ e.target.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
+            applyQuality(L);
             /* Every layer starts at the beginning of its source, every time.
                A seek is explicit rather than assumed: a retried or re-created
                player can hold its previous position, and a URL carrying a
@@ -923,6 +942,9 @@
             try{ if(Math.abs(L.player.getPlaybackRate()-L.speed)>.001) L.player.setPlaybackRate(snapRate(L,L.speed)); }catch(_){}
             renderPlaying(L);
           },
+          /* YouTube raises quality on its own once it has bandwidth headroom,
+             so the cap has to be re-applied rather than set once. */
+          onPlaybackQualityChange:function(){ applyQuality(L); },
           /* A mixer built on other people's videos meets removed, private and
              embedding-disabled videos regularly. Say which layer went and why,
              and keep its title so the layer is still identifiable. */
@@ -977,6 +999,22 @@
       return;
     }
     if(L.ready){ try{ L.player.setVolume(effectiveVol(L)); }catch(_){} }
+  }
+  /* A layer's video is a 118x66 thumbnail unless it is the one being
+     visualised. Letting YouTube pick quality meant decoding 720p or 1080p
+     into that box — five simultaneous decoders on a phone, which runs the
+     battery down and gets the handset genuinely hot. We only ever wanted the
+     audio; the pixels are incidental.
+
+     setPlaybackQuality is advisory and YouTube re-raises it, so it is
+     re-asserted whenever the player reports a change. */
+  function wantedQuality(L){ return theatreLayer===L ? "default" : "tiny"; }
+  function applyQuality(L){
+    if(isSynth(L) || !L.ready) return;
+    var want=wantedQuality(L);
+    try{
+      if(L.player.getPlaybackQuality()!==want) L.player.setPlaybackQuality(want);
+    }catch(_){}
   }
   function applySpeed(L){
     /* Synth layers have no transport to re-rate; their second slider is
@@ -1183,16 +1221,22 @@
     tvol.value=L.volume; fillSlider(tvol);
     tdim.value=Math.round(dimLevel*100); fillSlider(tdim);
     applyFit(); requestWake(); wakeControls(); syncTheatreAll();
+    /* This layer is now full screen, so it earns real resolution; the others
+       stay capped. */
+    applyQuality(L);
     if(!L.playing) playLayer(L);
     renderLayers();
   }
   function exitTheatre(){
+    var was=theatreLayer;
     if(theatreLayer) theatreDomOff(theatreLayer);
     theatreLayer=null;
     document.body.classList.remove("theatre-on");
     shade.classList.remove("on"); shade.style.opacity=0;
     catcher.classList.remove("on");
     tbar.classList.remove("on"); tbar.classList.remove("idle");
+    /* Back to a thumbnail, so back to the cheap stream. */
+    if(was) applyQuality(was);
     clearTimeout(idleT); syncWake(); renderLayers();
   }
   function wakeControls(){
