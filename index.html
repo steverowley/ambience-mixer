@@ -167,6 +167,12 @@ body{
 .strokes i{flex:0 0 2px; background:var(--wave); border-radius:1px}
 .sound.silent .strokes i, .band.off .strokes i{background:var(--wave-off)}
 
+/* Master level, on the player rather than behind a sheet. It is the
+   control someone reaches for half asleep, so it is not configuration. */
+.master{display:flex; align-items:center; gap:16px; margin:0 0 24px}
+.master label{font-size:14px; color:var(--ink-soft); min-width:74px}
+.master input[type=range]{flex:1 1 auto; width:auto; max-width:320px}
+
 /* ---------- play / pause ---------- */
 .playbtn{flex-shrink:0; width:var(--tap); height:var(--tap); border-radius:50%; padding:0;
   display:grid; place-items:center; background:transparent;
@@ -374,7 +380,14 @@ select{color:var(--ink); font:inherit; font-size:14px; background:var(--night);
 .tbar .trow input[type=range]{width:104px}
 .tbar .spacer{flex:1}
 body.theatre-on{overflow:hidden}
-body.theatre-on .page{display:none}
+/* Do NOT hide .page. The visualised video is a descendant of it, so
+   display:none on the page hid the one thing the visualiser exists to
+   show. Hide everything except the row being visualised: the iframe stays
+   rendered, and the compositor is still spared the rest of the screen. */
+body.theatre-on .page > :not(.sounds){display:none}
+body.theatre-on .sounds li:not(.is-theatre){display:none}
+body.theatre-on .sound.is-theatre > :not(.thumb){display:none}
+body.theatre-on .sound.is-theatre{display:block; padding:0; margin:0; background:none}
 
 /* ---------- toast and dialog ---------- */
 .toast{position:fixed; bottom:34px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
@@ -441,6 +454,11 @@ body.dialog-on{overflow:hidden}
     <h1 id="mixname">nothing playing</h1>
     <p class="sum" id="sum"></p>
   </header>
+
+  <div class="master">
+    <label for="masterVol">everything</label>
+    <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
+  </div>
 
   <ul class="sounds" id="grid"></ul>
 
@@ -528,10 +546,6 @@ body.dialog-on{overflow:hidden}
       <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
     </div>
 
-    <div class="sheet-row">
-      <span>everything</span>
-      <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
-    </div>
 
     <div class="sheet-row">
       <span>fade out</span>
