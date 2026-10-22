@@ -2,7 +2,7 @@
    The whole app is a single HTML file, so a cache-first shell gives full
    offline use of the UI, presets and saved mixes. Audio still needs the
    network: YouTube is not cacheable and must not be intercepted. */
-var CACHE = "murmur-2f90e98e";
+var CACHE = "murmur-0fd75716";
 var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 /* The page asks for the new worker to take over when the reader accepts the
