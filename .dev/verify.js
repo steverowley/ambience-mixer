@@ -27,6 +27,14 @@ ok("backdrop-filter blur used sparingly (<=3: header, dock, dialog)", bf <= 3, "
 ok("nothing animates on its own", !/animation:[^;}]*infinite/.test(html));
 ok("playing is a brighter edge, not a glow",
    /\.sound\.playing \.playbtn\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
+/* The control's class is rewritten on every paint, so it must keep its base
+   class. Assigning "wave" here (the name the control carried before a card
+   became a row) silently deleted .band from the element on first paint and
+   collapsed the name, the distance and the waveform onto one clipped line.
+   Nothing caught it: the static checks read the source, the stub DOM has no
+   layout, and the preview harness writes markup without ever painting. */
+ok("paintWave keeps the control's base class",
+   /w\.className=L\.volume>0\?"band":"band off"/.test(html));
 ok("renderMixes has no innerHTML for names", !/el\.innerHTML='<span class="name">'/.test(html));
 ok("loop checkbox focusable", /\.toggle input\{position:absolute; width:1px/.test(html));
 ok("extractId catch-all removed", !/m=input\.match\(\/\(\[a-zA-Z0-9_-\]\{11\}\)\/\)/.test(html));

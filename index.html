@@ -1395,7 +1395,14 @@ body.dialog-on{overflow:hidden}
     if(lab) lab.textContent=words;
     w.setAttribute("aria-valuenow",String(L.volume));
     w.setAttribute("aria-valuetext",words);
-    w.className=L.volume>0?"wave":"wave off";
+    /* Keep the base class. This used to assign "wave", which is what the
+       control itself was called before a card became a row. It silently
+       deleted .band from the element on first paint, so the element fell
+       back to .wave{display:flex;height:30px;overflow:hidden} and the name,
+       the distance and the waveform collapsed onto one clipped line. The
+       preview harness writes static markup and never calls this, which is
+       why it looked right everywhere except in the actual app. */
+    w.className=L.volume>0?"band":"band off";
   }
   function setLayerVolume(L,v){
     L._vraw=Math.max(0,Math.min(100,v));
