@@ -60,7 +60,7 @@ console.log(`            chip: ${chipFont}px, pad-x ${chipPadX}px, tracking ${ch
 const row1 = { name: "row 1 (Loop / Mute / Solo)",
                items: [toggleWidth("Loop"), chipWidth("Muted"), chipWidth("Soloed")] };
 /* Synth cards carry a "Synthesised" tag where a video card has the Loop
-   switch — it is the widest thing that row can hold. */
+   switch: it is the widest thing that row can hold. */
 const row1s = { name: "row 1 synth (Synth tag / Mute / Solo)",
                 items: [chipWidth("Synth") + 4, chipWidth("Muted"), chipWidth("Soloed")] };
 /* Visualise and Retry are mutually exclusive: an errored layer hides
@@ -97,7 +97,7 @@ function pillWidth(label, hasIcon) {
 }
 const labelW = 11 * 5.5;                        // "Volume"/"Dim" caps label
 /* At <=430px the bar sheds the layer name and the slider captions, and the
-   Pause all button drops to its icon — see the 430px breakpoint. */
+   Pause all button drops to its icon: see the 430px breakpoint. */
 const narrowItems = [
   42,                                           // play button
   66, 66,                                       // two sliders, no captions
