@@ -503,8 +503,9 @@ ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
    fires when the worker changes: navigations are network-first so a reload
    is always fresh, but an app left playing all night never learns there is
    a new build. Run node .dev/stamp.js after editing index.html. */
+const CR = String.fromCharCode(13);
 const shellTag = "murmur-" + require("crypto").createHash("sha1")
-  .update(fs.readFileSync(path.join(__dirname, "..", "index.html")))
+  .update(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").split(CR).join(""))
   .digest("hex").slice(0, 8);
 ok("the service worker is stamped with the current shell",
    sw.indexOf('var CACHE = "' + shellTag + '"') !== -1,
