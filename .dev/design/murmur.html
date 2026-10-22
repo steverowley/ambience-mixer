@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>murmur</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   MURMUR
+
+   THE NAME
+   Latin murmur: a humming, a muttering, the roar of water. It is also
+   plain English, so it needs no explaining, and it describes exactly
+   what the app produces: several quiet sounds heard as one.
+
+   HOW THIS DIFFERS FROM OTIUM, deliberately
+   Otium is a place made of stone and water: a serif, sentence case, a
+   mosaic laid in a single accent colour. Murmur is not a place, it is
+   the sound itself. So:
+     one typeface, not two
+     lowercase throughout, because a murmur is not announced
+     NO accent colour anywhere. Emphasis is brightness alone. A murmur
+       is monochrome, and on a screen used in the dark the quietest
+       possible palette is also the kindest one
+     the sound is drawn as its own waveform rather than as laid pieces
+   These are two languages, not one language in two fonts.
+
+   THE IDEA
+   Every sound has a shape, and the shape is stable: rain is not wind,
+   a stream is not a drone. Each row draws that sound's own waveform,
+   generated once from its name so it never changes between sessions,
+   and the level is its amplitude. Turning a sound down does not dim a
+   bar, it flattens the sound towards a line.
+
+     On this screen, each sound becomes its own waveform, and the level
+     is how much it moves.
+
+   HOW IT IS BUILT, and why
+   The strokes are given their heights once and the level is applied as
+   a single scaleY on their container. One style write per row per
+   frame rather than one per stroke, so a drag stays smooth with five
+   sounds on screen.
+
+   WHAT CARRIES OVER FROM THE WORK BEFORE IT
+   - Levels are distances, said in words, never numbers. Loudness in a
+     soundscape genuinely is perceived distance, and it generalises to
+     any mix: rain close, thunder down the corridor, a drone filling
+     the room.
+   - Nothing countable: no totals, no tallies, no digits counting down.
+   - The whole row is the control. Relative drag, nothing to aim at.
+   - Motion is feedback only. Nothing drifts or pulses on its own.
+
+   Craft laws kept: one face doing every job, one ground, one ink, no
+   accent, running text in the full ink, surfaces separated by a tone
+   step, no gradients, no shadows at rest, no glass, no eyebrows, no
+   uppercase micro labels, no monospace, the title inside 18-32px.
+   ============================================================ */
+
+:root{
+  /* a warm near-black room. Not navy, not slate, not cream. */
+  --night:#131211;
+  --lift:#1C1B19;          /* the one tone step, for a held row */
+
+  /* two ink tones only: three greys cannot be told apart in the dark */
+  --ink:#E8E6E1;
+  --ink-soft:#9D9A94;
+
+  /* the waveform. No accent colour exists in this design: a sound that
+     is playing is simply brighter than one that is not. */
+  --wave:#8C8881;
+  --wave-off:#45423E;
+
+  --edge:#332F2B;
+
+  --sans:"Figtree",system-ui,-apple-system,sans-serif;
+
+  --column:740px;
+  --tap:48px;
+  --wave-h:34px;
+}
+
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;
+  min-height:100%;
+  background:var(--night);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  font-weight:400;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.page{
+  max-width:var(--column);
+  margin:0 auto;
+  padding:44px 40px;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+/* ---------- the product is named ---------- */
+.wordmark{
+  font-size:17px;
+  font-weight:500;
+  letter-spacing:-.01em;
+  color:var(--ink-soft);
+  margin:0 0 42px;
+}
+
+/* ---------- the mix ---------- */
+h1{
+  font-size:30px;
+  font-weight:300;
+  letter-spacing:-.02em;
+  line-height:1.15;
+  margin:0;
+}
+.sum{margin:7px 0 0;font-size:15px;color:var(--ink-soft)}
+header{margin-bottom:40px}
+
+/* ---------- the sounds ---------- */
+.sounds{list-style:none;margin:0;padding:0}
+.sound{
+  display:grid;
+  grid-template-columns:186px 1fr;
+  align-items:center;
+  gap:26px;
+  width:100%;
+  min-height:var(--tap);
+  padding:12px 16px;
+  margin:0 -16px 4px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  border-radius:6px;
+  cursor:ew-resize;
+  touch-action:pan-y;
+  transition:background 160ms linear;
+}
+.sound:hover,.sound.held{background:var(--lift)}
+.sound:focus-visible{outline:2px solid var(--ink-soft);outline-offset:-2px}
+
+.name{
+  display:block;
+  font-size:18px;
+  font-weight:400;
+  letter-spacing:-.01em;
+  line-height:1.2;
+}
+/* the level, in words: the readout. There is no number on this screen. */
+.near{
+  display:block;
+  margin-top:2px;
+  font-size:13px;
+  color:var(--ink-soft);
+}
+.sound.quiet .name{color:var(--ink-soft)}
+
+/* the waveform. Strokes keep their own heights; the level is applied
+   as one scaleY on the container. */
+.wave{
+  height:var(--wave-h);
+  display:flex;align-items:center;
+  overflow:hidden;
+}
+/* Coarse on purpose. At 1px with a 3px pitch every sound rendered as
+   the same dense hairline band: the promise that rain looks nothing
+   like wind was not kept, and the difference between a sound that is
+   close and one across the room was invisible. Wider strokes, fewer of
+   them, and both read at a glance. */
+.strokes{
+  display:flex;align-items:center;gap:3px;
+  height:var(--wave-h);
+  transform-origin:center center;
+}
+.strokes i{
+  flex:0 0 2px;
+  background:var(--wave);
+  border-radius:1px;
+}
+.sound.quiet .strokes i{background:var(--wave-off)}
+
+/* ---------- the one control ---------- */
+footer{
+  padding:40px 0 0;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:10px;
+  height:var(--tap);
+  padding:0 24px;
+  border:1px solid var(--edge);
+  border-radius:999px;        /* fully round, decided once */
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  cursor:pointer;
+  transition:border-color 160ms linear,background 160ms linear;
+}
+.btn:hover{border-color:var(--ink-soft);background:var(--lift)}
+.btn:focus-visible{outline:2px solid var(--ink-soft);outline-offset:3px}
+.btn svg{width:13px;height:13px;display:block;fill:currentColor}
+.quiet-btn{
+  font-size:14px;color:var(--ink-soft);
+  background:none;border:0;padding:0;
+  font-family:var(--sans);cursor:pointer;
+  border-bottom:1px solid transparent;
+}
+.quiet-btn:hover{color:var(--ink);border-bottom-color:var(--edge)}
+.quiet-btn:focus-visible{outline:2px solid var(--ink-soft);outline-offset:3px}
+.sep{color:var(--edge)}
+
+/* ---------- nothing playing ---------- */
+.empty{
+  border:1px dashed var(--edge);
+  border-radius:8px;
+  padding:26px 22px;
+}
+.empty p{margin:0;font-size:15px;color:var(--ink-soft)}
+.empty .lead{font-size:19px;color:var(--ink);margin-bottom:5px}
+
+@media (max-width:640px){
+  :root{--wave-h:30px}
+  .page{padding:30px 20px;justify-content:flex-start}
+  .wordmark{margin-bottom:28px}
+  header{margin-bottom:28px}
+  h1{font-size:25px}
+  .sound{
+    grid-template-columns:1fr;
+    gap:10px;
+    padding:12px 14px;
+    margin:0 -14px 4px;
+  }
+  footer{padding:32px 0 calc(22px + env(safe-area-inset-bottom));gap:16px}
+  .btn{flex:1 1 auto;justify-content:center}
+  /* the footer wraps at this width and the separator was left dangling
+     at the end of the first line with nothing after it */
+  .sep{display:none}
+}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms !important}}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <p class="wordmark">murmur</p>
+
+  <header>
+    <h1 id="mixname"></h1>
+    <p class="sum" id="sum"></p>
+  </header>
+
+  <ul class="sounds" id="sounds"></ul>
+
+  <footer>
+    <button class="btn" id="toggle">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>
+      <span id="togglelabel">pause</span>
+    </button>
+    <button class="quiet-btn" id="fade">fading out around six</button>
+    <span class="sep" aria-hidden="true">&middot;</span>
+    <button class="quiet-btn" id="change">another mix</button>
+  </footer>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* Four mixes, so the screen is not built around one preset. Indoor
+     pool is the real starter preset with its real levels; the others
+     are arrangements of the app's real built-in sounds, so nothing on
+     this screen is an invented product name. */
+  var MIXES = [
+    { name:"indoor pool", sounds:[
+      { name:"pool ambience",  level:75, on:true  },
+      { name:"the cool river", level:89, on:true  },
+      { name:"aquapark",       level:60, on:true  },
+      { name:"locker room",    level:59, on:true  },
+      { name:"showers",        level:22, on:false }
+    ]},
+    { name:"built-in only", sounds:[
+      { name:"rain",  level:70, on:true },
+      { name:"waves", level:45, on:true },
+      { name:"wind",  level:30, on:true },
+      { name:"drone", level:18, on:true }
+    ]},
+    { name:"two sounds", sounds:[
+      { name:"brown noise", level:55, on:true },
+      { name:"stream",      level:32, on:true }
+    ]},
+    { name:"nothing yet", sounds:[] }
+  ];
+
+  var STROKES = 150;    /* enough to overrun the widest row; it is clipped */
+
+  /* A level is a distance, described the way a place is described. This
+     reads correctly whatever the mix is. */
+  function nearness(v){
+    if (v >= 85) return "filling the room";
+    if (v >= 65) return "close";
+    if (v >= 45) return "across the room";
+    if (v >= 25) return "down the corridor";
+    if (v >= 10) return "behind a door";
+    if (v > 0)   return "almost gone";
+    return "silent";
+  }
+
+  /* Each sound's waveform is generated once from its name, so a sound
+     looks the same every time you open the app: rain is never wind.
+     A few sine components rather than random noise, so it reads as a
+     murmur settling rather than as static. */
+  function seedOf(name){
+    var h = 0;
+    for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 100000;
+    return h;
+  }
+  function shape(name, i){
+    var s = seedOf(name);
+    /* A slow envelope dominates, so each sound has its own silhouette
+       rather than all of them averaging into the same even band. */
+    var slow   = Math.sin((i * 0.019) + s * 0.071) * 1.00;
+    var swell  = Math.sin((i * 0.062) + s * 0.031) * 0.85;
+    var detail = Math.sin((i * 0.27)  + s * 0.013) * 0.45;
+    var v = (slow + swell + detail) / 2.30;  /* -1 .. 1 */
+    return 0.16 + Math.abs(v) * 0.84;        /* 0.16 .. 1 */
+  }
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  var list   = document.getElementById("sounds");
+  var title  = document.getElementById("mixname");
+  var sum    = document.getElementById("sum");
+  var toggle = document.getElementById("toggle");
+  var label  = document.getElementById("togglelabel");
+  var ico    = toggle.querySelector("svg");
+  var SVGNS  = "http://www.w3.org/2000/svg";
+  var WAVE_H = 34;
+
+  var mixIndex = 0, playing = true, mix, sounds;
+
+  function describe(){
+    var live = sounds.filter(function(s){ return s.on && s.level > 0; }).length;
+    if (!sounds.length)  sum.textContent = "nothing playing.";
+    else if (live === 0) sum.textContent = "all quiet.";
+    else if (live === 1) sum.textContent = "one sound.";
+    else                 sum.textContent = live + " sounds together.";
+  }
+
+  function paint(S, held){
+    var v = Math.round(S.level);
+    var words = S.on ? nearness(v) : "paused";
+    S.nearEl.textContent = words;
+    /* turning a sound down flattens it towards a line rather than
+       dimming a bar. A trace is always left, so silence is still legible. */
+    S.strokes.style.transform = "scaleY(" + (0.05 + 0.95 * (v / 100)).toFixed(3) + ")";
+    S.row.className = "sound" + ((S.on && v > 0) ? "" : " quiet") + (held ? " held" : "");
+    S.row.setAttribute("aria-valuenow", String(v));
+    S.row.setAttribute("aria-valuetext", S.name + ", " + words);
+  }
+
+  /* Relative drag: the level moves by how far the thumb moves, never to
+     where it landed. Nothing to hit, which is the point in the dark. */
+  function wire(S){
+    var dragging = false, lastX = 0, t0 = 0;
+    function x(e){ return e.touches ? e.touches[0].clientX : e.clientX; }
+
+    S.row.addEventListener("pointerdown", function(e){
+      dragging = true; lastX = x(e); t0 = Date.now();
+      if (S.row.setPointerCapture && e.pointerId != null) S.row.setPointerCapture(e.pointerId);
+      paint(S, true);
+    });
+    S.row.addEventListener("pointermove", function(e){
+      if (!dragging) return;
+      var nx = x(e), dx = nx - lastX; lastX = nx;
+      var dt = Math.max(1, Date.now() - t0); t0 = Date.now();
+      var speed = Math.abs(dx) / dt;
+      var gain = speed > 0.6 ? 1 : (speed > 0.2 ? 0.55 : 0.32);
+      S.level = Math.max(0, Math.min(100, S.level + dx * gain * 0.5));
+      if (S.level > 0) S.on = true;
+      paint(S, true);
+      if (e.preventDefault) e.preventDefault();
+    });
+    function up(){
+      if (!dragging) return;
+      dragging = false;
+      S.level = Math.round(S.level);
+      paint(S, false);
+      describe();
+    }
+    S.row.addEventListener("pointerup", up);
+    S.row.addEventListener("pointercancel", up);
+
+    S.row.addEventListener("keydown", function(e){
+      var step = e.shiftKey ? 10 : 3, used = true;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") S.level = Math.min(100, S.level + step);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowDown") S.level = Math.max(0, S.level - step);
+      else if (e.key === "Home") S.level = 0;
+      else if (e.key === "End") S.level = 100;
+      else if (e.key === " " || e.key === "Enter") S.on = !S.on;
+      else used = false;
+      if (used){ e.preventDefault(); paint(S, false); describe(); }
+    });
+  }
+
+  function render(){
+    mix = MIXES[mixIndex];
+    sounds = mix.sounds;
+    title.textContent = mix.name;
+    while (list.firstChild) list.removeChild(list.firstChild);
+
+    if (!sounds.length){
+      var li0 = document.createElement("li");
+      var box = el("div","empty");
+      box.appendChild(el("p","lead","nothing playing yet."));
+      box.appendChild(el("p",null,"choose a sound, or open one of the starter mixes."));
+      li0.appendChild(box);
+      list.appendChild(li0);
+      describe();
+      return;
+    }
+
+    sounds.forEach(function(S){
+      var li  = document.createElement("li");
+      var row = document.createElement("button");
+      row.type = "button";
+      row.setAttribute("role","slider");
+      row.setAttribute("aria-valuemin","0");
+      row.setAttribute("aria-valuemax","100");
+
+      var left = el("span");
+      left.appendChild(el("span","name",S.name));
+      var near = el("span","near");
+      left.appendChild(near);
+      row.appendChild(left);
+
+      var wave = el("span","wave");
+      var strokes = el("span","strokes");
+      for (var i = 0; i < STROKES; i++){
+        var st = document.createElement("i");
+        st.style.height = (shape(S.name, i) * WAVE_H).toFixed(1) + "px";
+        strokes.appendChild(st);
+      }
+      wave.appendChild(strokes);
+      row.appendChild(wave);
+
+      S.row = row; S.nearEl = near; S.strokes = strokes;
+      wire(S);
+      paint(S, false);
+
+      li.appendChild(row);
+      list.appendChild(li);
+    });
+    describe();
+  }
+
+  function setIcon(){
+    while (ico.firstChild) ico.removeChild(ico.firstChild);
+    if (playing){
+      [["8.4","6.9"],["12.7","6.9"]].forEach(function(p){
+        var r = document.createElementNS(SVGNS,"rect");
+        r.setAttribute("x",p[0]); r.setAttribute("y",p[1]);
+        r.setAttribute("width","2.9"); r.setAttribute("height","10.2"); r.setAttribute("rx","1.2");
+        ico.appendChild(r);
+      });
+    } else {
+      var t = document.createElementNS(SVGNS,"path");
+      t.setAttribute("d","M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z");
+      ico.appendChild(t);
+    }
+    label.textContent = playing ? "pause" : "play";
+    toggle.setAttribute("aria-label", playing ? "Pause everything" : "Play everything");
+  }
+
+  toggle.addEventListener("click", function(){
+    playing = !playing;
+    sounds.forEach(function(S){
+      S.on = playing && S.level > 0;
+      paint(S, false);
+    });
+    setIcon();
+    describe();
+  });
+
+  document.getElementById("change").addEventListener("click", function(){
+    mixIndex = (mixIndex + 1) % MIXES.length;
+    playing = true;
+    setIcon();
+    render();
+  });
+
+  setIcon();
+  render();
+})();
+</script>
+</body>
+</html>
