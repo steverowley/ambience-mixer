@@ -1,0 +1,701 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ambience, Indoor pool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   AMBIENCE, the mix screen
+   Style: data-terminal (app sheet seed 1900287073, kind creator, dark)
+   Composed from references/app-screens.md: the library has no pattern for
+   a builder canvas.
+
+   The screen's question:  What am I hearing, and will it hold until morning?
+   The finding:            The cool river restarts 112 times before the alarm.
+   The face:              "a signature of the system as the lead" — the night
+                           strip below, with the accent taken from the
+                           product's world (pool water) in place of the
+                           dealt blue.
+   The signature element:  the night strip. One lane per layer across the
+                           sleep window, a tick at every restart. A source
+                           that loops every 4m 16s reads as a comb; one that
+                           runs 11h 55m reads as an unbroken line.
+
+   The style's move, kept intact: every selection is a 1px accent line
+   exactly as wide as its label, on the nearest existing edge.
+   Colour budget: under 3%. The one hue sits on the main data element (the
+   river's restart ticks, which are what the finding is about) and on
+   nothing else that is not a selection.
+   ============================================================ */
+
+:root{
+  /* dealt tokens */
+  --ground:#171719;
+  --surface:#131217;      /* cards DARKER than the ground, with a soft shadow */
+  --raised:#212023;
+  --border:#222224;
+  --rule:#1b1a1f;
+  --control:#3a3a3e;
+  --text:#ffffff;
+  --muted:#8a8c92;        /* lifted from the studied screen's #82848a for 4.5:1 */
+
+  /* the accent, taken from the product's world: the water of the indoor pool
+     this mix is made of. Replaces the dealt #4a8ad6. Not violet, not indigo.
+     It appears on the river's ticks and as the 1px selection line, nowhere
+     else. */
+  --accent:#58b0c4;
+
+  --negative:#e5566f;
+  /* the sheet: "The shadow belongs to this dark style's cards only; nothing
+     else casts one." Kept deliberately; defended in the report. */
+  --shadow:0 12px 28px rgba(0,0,0,.2);
+
+  --radius-card:6px;
+  --radius-control:999px;
+  --row-height:42px;
+  --kv-row:34px;
+  --lane-height:30px;
+  --rail-width:55px;
+  --gap:24px;
+  --pad:32px;
+  --control-height:34px;
+
+  --fs-title:26px;
+  --fs-body:13px;
+  --fs-small:12px;
+
+  --font:"Public Sans",Inter,system-ui,sans-serif;
+
+  /* the night strip's three columns, shared by the lanes and the axis so
+     both sit on one left edge and one right edge */
+  --strip-name:168px;
+  --strip-count:64px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ground);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:var(--fs-body);
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  padding-left:var(--rail-width);
+}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell: icon rail ---------- */
+.rail{
+  position:fixed;left:0;top:0;bottom:0;
+  width:var(--rail-width);
+  background:var(--ground);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;
+  z-index:5;
+}
+/* the product is named: its mark sits at the top of the rail */
+.mark{
+  width:28px;height:28px;flex:0 0 auto;
+  display:grid;place-items:center;
+  margin-bottom:22px;
+}
+.mark svg{display:block}
+/* the nav takes the remaining height so the spacer can push the utilities
+   to the bottom, as the chapter asks */
+.rail nav{
+  flex:1 1 auto;
+  display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;
+}
+.rail .sp{flex:1 1 auto}
+.navbtn{
+  position:relative;
+  width:38px;height:38px;
+  display:grid;place-items:center;
+  border:0;background:transparent;padding:0;
+  color:#8a8c92;
+  cursor:pointer;
+  border-radius:4px;
+}
+.navbtn svg{width:17px;height:17px;display:block;fill:none;stroke:currentColor;stroke-width:1.5}
+/* an icon rail is unlabelled: the label is the tooltip and the accessible
+   name. It becomes visible text only when the rail turns into the phone's
+   bottom bar. */
+.navbtn .nlabel{display:none}
+.navbtn:hover{color:#c9cace}
+.navbtn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* the style's move: the selection is a 1px accent line on the nearest edge */
+.navbtn[aria-current="page"]{color:var(--text)}
+.navbtn[aria-current="page"]::after{
+  content:"";position:absolute;left:-9px;top:50%;transform:translateY(-50%);
+  width:1px;height:17px;background:var(--accent);
+}
+.railgroup{width:20px;height:1px;background:var(--border);margin:10px 0}
+
+/* ---------- canvas ----------
+   Centred on the area beside the rail, not on the window, with equal
+   gutters. At 1440 that leaves about 90px each side, which is the air a
+   dense screen wants. */
+.canvas{
+  max-width:calc(1204px + var(--pad) * 2);
+  margin:0 auto;
+  padding:var(--pad);
+}
+
+.titlerow{
+  display:flex;align-items:flex-start;gap:var(--gap);
+  margin-bottom:28px;
+}
+.titlewrap{flex:1 1 auto;min-width:0}
+h1{
+  font-size:var(--fs-title);      /* 26px: inside the 18-32 app range */
+  font-weight:700;
+  letter-spacing:-.02em;
+  line-height:1.15;
+  margin:0;
+}
+/* the finding, read first, directly under the title */
+.finding{
+  margin:7px 0 0;
+  font-size:14px;
+  color:var(--muted);
+  max-width:62ch;
+}
+.finding b{color:var(--text);font-weight:500}
+
+.actions{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.btn{
+  height:var(--control-height);
+  padding:0 14px;
+  border:1px solid var(--control);
+  background:transparent;
+  color:var(--text);
+  font:inherit;font-size:var(--fs-body);
+  border-radius:var(--radius-control);
+  display:inline-flex;align-items:center;gap:8px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.btn:hover{border-color:#55555c}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* one primary per screen. Emphasis without colour: a grey fill, because a
+   white pill or a saturated fill is the brightest thing in a dark bedroom. */
+.btn.primary{background:var(--raised);border-color:var(--raised);font-weight:500}
+.btn.primary:hover{background:#2a2a2e;border-color:#2a2a2e}
+.btn svg{width:13px;height:13px;display:block;fill:currentColor}
+.stamp{font-size:var(--fs-small);color:var(--muted);white-space:nowrap}
+
+/* ---------- cards ---------- */
+.card{
+  background:var(--surface);
+  border-radius:var(--radius-card);
+  box-shadow:var(--shadow);
+  padding:var(--pad);
+}
+.cardhead{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
+.cardhead h2{font-size:16px;font-weight:600;margin:0;flex:1 1 auto;min-width:0}
+.cardhead .per{font-size:var(--fs-small);color:var(--muted);white-space:nowrap}
+
+/* the lead block carries the screen's question, so it is the biggest */
+.lead{margin-bottom:var(--gap)}
+
+/* two blocks below. The sum, written down:
+   1204 = 760 + 24 + 420.
+   Their bottom edges land together by content, not by stretching:
+   Layers  32 + 24 + 20 + 26 + (5 x 42) + 32 = 344
+   The mix 32 + 24 + 20 + (7 x 34)      + 32 = 346   */
+.row2{
+  display:grid;
+  grid-template-columns:760fr 420fr;
+  gap:var(--gap);
+  align-items:start;
+}
+
+/* ---------- the night strip (the signature element) ----------
+   The gridlines are drawn INSIDE each lane's SVG rather than as one overlay
+   across the block. An overlay has to span the names when the lanes stack on
+   a phone, and it ran straight through the words. Inside the lane it can
+   never cross text at any width, and because each lane's SVG fills its whole
+   row, the lines still read as continuous down the chart. */
+.strip{position:relative}
+.lane{
+  display:grid;
+  grid-template-columns:var(--strip-name) 1fr var(--strip-count);
+  gap:16px;
+  align-items:center;
+  height:var(--lane-height);
+}
+.lane .lname{
+  font-size:var(--fs-body);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.lane .lname.off{color:var(--muted)}
+.lane .lcount{font-size:var(--fs-body);text-align:right;color:var(--muted)}
+.lane .lcount b{color:var(--text);font-weight:500}
+.lane .plot{height:var(--lane-height)}
+.lane svg{display:block;width:100%;height:var(--lane-height)}
+.axis{
+  position:relative;height:22px;
+  margin-left:calc(var(--strip-name) + 16px);
+  margin-right:calc(var(--strip-count) + 16px);
+}
+.axis span{
+  position:absolute;top:6px;
+  font-size:var(--fs-small);color:var(--muted);
+  transform:translateX(-50%);white-space:nowrap;
+}
+/* the first and last labels are pulled inside the plot */
+.axis span:first-child{transform:none}
+.axis span:last-child{transform:translateX(-100%)}
+
+.annot{
+  display:grid;
+  grid-template-columns:var(--strip-name) 1fr var(--strip-count);
+  gap:16px;margin-top:12px;
+}
+.annot p{grid-column:2;margin:0;font-size:var(--fs-small);color:var(--muted)}
+.annot p b{color:var(--text);font-weight:500}
+
+/* ---------- the layer table ---------- */
+table{width:100%;border-collapse:collapse}
+thead th{
+  font-size:var(--fs-small);font-weight:400;color:var(--muted);
+  text-align:left;padding:0 0 10px;white-space:nowrap;
+}
+thead th.num{text-align:right}
+tbody td{
+  padding:0;height:var(--row-height);
+  border-top:1px solid var(--rule);
+  font-size:var(--fs-body);vertical-align:middle;
+}
+tbody tr:first-child td{border-top:0}
+td.name{width:40%;color:var(--text)}
+td.name .sub{display:block;font-size:var(--fs-small);color:var(--muted);line-height:1.3}
+td.num{text-align:right;color:var(--text)}
+td.num .unit{color:var(--muted)}
+.dash{color:var(--muted)}
+
+/* The level as a thin grey bar beside its figure. Secondary data, so 3px and
+   grey: the one hue belongs to the night strip. The track has to be visible
+   or the fill reads as a floating dash, which is how the first draft of this
+   screen looked. */
+.levelcell{display:flex;align-items:center;justify-content:flex-end;gap:12px}
+.bar{width:72px;height:3px;background:#2e2e33;flex:0 0 auto}
+.bar i{display:block;height:3px;background:#9a9ca2}
+.bar.top i{background:#c9cace}
+.levelcell .num{min-width:22px;text-align:right}
+
+/* ---------- the mix summary ---------- */
+.kv{display:grid;grid-template-columns:1fr auto;gap:0 16px}
+.kv dt,.kv dd{
+  margin:0;height:var(--kv-row);
+  display:flex;align-items:center;
+  font-size:var(--fs-body);
+  border-top:1px solid var(--rule);
+}
+.kv dt{color:var(--muted)}
+.kv dd{justify-content:flex-end}
+.kv dt:first-of-type,.kv dt:first-of-type + dd{border-top:0}
+
+/* ---------- tablet ---------- */
+@media (max-width:1100px){
+  .row2{grid-template-columns:1fr}
+}
+
+/* ---------- phone ---------- */
+@media (max-width:640px){
+  :root{--pad:16px;--strip-name:0px;--strip-count:0px;--lane-height:26px}
+  body{padding-left:0}
+  /* an icon rail becomes a bottom bar with short labels */
+  .rail{
+    left:0;right:0;top:auto;bottom:0;
+    width:auto;height:auto;
+    flex-direction:row;align-items:stretch;
+    border-right:0;border-top:1px solid var(--border);
+    padding:0;padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mark{display:none}
+  .rail nav{flex-direction:row;gap:0}
+  .rail .sp,.railgroup{display:none}
+  .navbtn{
+    flex:1 1 0;height:56px;width:auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    border-radius:0;
+  }
+  .navbtn .nlabel{display:block;font-size:11px;color:inherit}
+  /* the selection line moves to the nearest edge, which is now the top */
+  .navbtn[aria-current="page"]::after{
+    left:50%;top:0;transform:translateX(-50%);
+    width:18px;height:1px;
+  }
+  .canvas{padding-bottom:88px}
+  .titlerow{flex-direction:column;gap:16px}
+  .actions{width:100%}
+  .actions .btn{flex:1 1 auto;justify-content:center;height:44px}
+  .stamp{display:none}
+
+  /* the strip stacks: the name on its own line above a full-width lane */
+  .lane{
+    grid-template-columns:1fr auto;
+    gap:4px 12px;height:auto;
+    padding:10px 0;border-top:1px solid var(--rule);
+  }
+  .lane:first-of-type{border-top:0}
+  .lane .lname{grid-column:1;grid-row:1}
+  .lane .lcount{grid-column:2;grid-row:1}
+  .lane .plot{grid-column:1 / -1;grid-row:2;margin-top:6px}
+  .axis{margin:0}
+  .annot{grid-template-columns:1fr}
+  .annot p{grid-column:1}
+
+  /* the table becomes two-line rows; no field is dropped */
+  thead{display:none}
+  tbody td{display:block;height:auto;border-top:0;padding:0}
+  tbody tr{
+    display:grid;grid-template-columns:1fr auto;
+    gap:3px 12px;padding:12px 0;
+    border-top:1px solid var(--rule);
+    min-height:44px;align-items:center;
+  }
+  tbody tr:first-child{border-top:0}
+  td.name{grid-column:1;grid-row:1;width:auto}
+  td.lvl{grid-column:2;grid-row:1}
+  td.loop{grid-column:1 / -1;grid-row:2;font-size:var(--fs-small);color:var(--muted);text-align:left}
+  td.restarts{display:none}
+}
+
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="rail">
+  <div class="mark" title="Ambience">
+    <!-- the product's mark, drawn for it: three stacked levels, the shape of
+         a mix. Not a letter in a black square. -->
+    <svg viewBox="0 0 28 28" width="28" height="28" role="img" aria-label="Ambience">
+      <rect x="4" y="8"  width="20" height="2" rx="1" fill="#c9cace"></rect>
+      <rect x="4" y="13" width="13" height="2" rx="1" fill="#8a8c92"></rect>
+      <rect x="4" y="18" width="7"  height="2" rx="1" fill="#5a5c62"></rect>
+    </svg>
+  </div>
+  <nav aria-label="Ambience">
+    <button class="navbtn" aria-current="page" aria-label="Mix" title="Mix">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 14h10M4 20h5"/></svg>
+      <span class="nlabel">Mix</span>
+    </button>
+    <button class="navbtn" aria-label="Sounds" title="Sounds">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h3l3-5v10l-3-5H4z"/><path d="M15 9a4 4 0 0 1 0 6"/></svg>
+      <span class="nlabel">Sounds</span>
+    </button>
+    <button class="navbtn" aria-label="Mixes" title="Mixes">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="6" rx="1"/><rect x="4" y="13" width="16" height="6" rx="1"/></svg>
+      <span class="nlabel">Mixes</span>
+    </button>
+    <button class="navbtn" aria-label="Timer" title="Timer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 10v3.5l2.5 1.5M9 3h6"/></svg>
+      <span class="nlabel">Timer</span>
+    </button>
+    <div class="sp"></div>
+    <div class="railgroup"></div>
+    <button class="navbtn" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2M6.5 6.5l1.5 1.5M16 16l1.5 1.5M17.5 6.5L16 8M8 16l-1.5 1.5"/></svg>
+      <span class="nlabel">Settings</span>
+    </button>
+  </nav>
+</div>
+
+<main class="canvas">
+  <div class="titlerow">
+    <div class="titlewrap">
+      <h1>Indoor pool</h1>
+      <p class="finding" id="finding"></p>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="toggle">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="6" width="3" height="12" rx="1"/><rect x="13" y="6" width="3" height="12" rx="1"/></svg>
+        <span id="togglelabel">Pause</span>
+      </button>
+      <button class="btn" id="timer">Ends 06:00</button>
+      <span class="stamp" id="stamp"></span>
+    </div>
+  </div>
+
+  <section class="card lead">
+    <div class="cardhead">
+      <h2>Tonight</h2>
+      <span class="per" id="period"></span>
+    </div>
+    <div class="strip" id="strip">
+      <div id="lanes"></div>
+      <div class="axis" id="axis"></div>
+      <div class="annot"><p id="annot"></p></div>
+    </div>
+  </section>
+
+  <div class="row2">
+    <section class="card">
+      <div class="cardhead">
+        <h2>Layers</h2>
+        <span class="per" id="layercount"></span>
+      </div>
+      <table id="layers">
+        <thead>
+          <tr>
+            <th scope="col">Sound</th>
+            <th scope="col" class="num">Level</th>
+            <th scope="col" class="num">Loop</th>
+            <th scope="col" class="num">Restarts</th>
+          </tr>
+        </thead>
+        <tbody id="layerbody"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="cardhead"><h2>The mix</h2></div>
+      <dl class="kv" id="kv"></dl>
+    </section>
+  </div>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     The data: the real Indoor pool preset, with the real source durations.
+     Every figure on the screen is computed from these rows. Nothing is
+     typed in twice, and the assertions below fail loudly in the console if
+     a computed figure stops agreeing with them.
+     ============================================================ */
+
+  /* 22:00 to 06:00, so the axis steps evenly in 2h and lands exactly on its
+     end rather than leaving a short last gap */
+  var START = 22 * 3600;
+  var WINDOW = 8 * 3600;
+
+  var LAYERS = [
+    { name:"Pool ambience",  level:75, seconds:14400, speed:1,    playing:true  },
+    { name:"The cool river", level:89, seconds:192,   speed:0.75, playing:true  },
+    { name:"Aquapark",       level:60, seconds:42900, speed:1,    playing:true  },
+    { name:"Locker room",    level:59, seconds:10800, speed:1,    playing:true  },
+    { name:"Showers",        level:22, seconds:36000, speed:1,    playing:false }
+  ];
+
+  function loopLength(L){ return L.seconds / L.speed; }
+  function restarts(L){ return Math.max(0, Math.ceil(WINDOW / loopLength(L)) - 1); }
+
+  LAYERS.forEach(function(L){ L.loop = loopLength(L); L.restarts = restarts(L); });
+
+  var river = LAYERS[1];
+  console.assert(river.loop === 256, "river loop should be 4m 16s at 0.75x, got " + river.loop);
+  console.assert(river.restarts === 112, "river should restart 112 times, got " + river.restarts);
+  console.assert(LAYERS[2].restarts === 0, "an 11h 55m source cannot restart in 8h");
+  var totalRestarts = LAYERS.reduce(function(a,L){ return a + (L.playing ? L.restarts : 0); }, 0);
+  console.assert(totalRestarts === 115, "restarts tonight should be 115, got " + totalRestarts);
+
+  /* ---------- formatting, fixed per metric ---------- */
+  function clock(sec){
+    var s = Math.round(sec) % 86400;
+    var hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60);
+    return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+  }
+  function dur(sec){
+    sec = Math.round(sec);
+    var hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60;
+    if (hh) return hh + "h " + (mm < 10 ? "0" : "") + mm + "m";
+    if (mm) return mm + "m " + (ss < 10 ? "0" : "") + ss + "s";
+    return ss + "s";
+  }
+  function n(x){ return String(x).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+
+  function h(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function sv(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) if (attrs.hasOwnProperty(k)) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  /* ---------- the finding, in the title row ---------- */
+  var playing = LAYERS.filter(function(L){ return L.playing; });
+  var worst = playing.slice().sort(function(a,b){ return b.restarts - a.restarts; })[0];
+
+  var finding = document.getElementById("finding");
+  finding.appendChild(document.createTextNode(worst.name + " restarts "));
+  finding.appendChild(h("b", null, n(worst.restarts) + " times"));
+  finding.appendChild(document.createTextNode(
+    " before the alarm, every " + dur(worst.loop) +
+    ". Every other layer plays through once or twice."
+  ));
+
+  document.getElementById("period").textContent =
+    clock(START) + " to " + clock(START + WINDOW) + " \u00b7 " + dur(WINDOW);
+  document.getElementById("stamp").textContent = "Playing since " + clock(START - 600);
+  document.getElementById("layercount").textContent =
+    playing.length + " of " + LAYERS.length + " playing";
+
+  /* ---------- the night strip ---------- */
+  /* an even 2h step that lands exactly on the window's end */
+  var TICKS = [];
+  for (var t = 0; t <= WINDOW; t += 2 * 3600) TICKS.push(t);
+
+  var VB_H = 30;   /* the lane's SVG fills its row, so the gridlines in
+                      neighbouring lanes meet and read as continuous */
+
+  var lanes = document.getElementById("lanes");
+  LAYERS.forEach(function(L){
+    var lane = h("div", "lane");
+    lane.appendChild(h("div", "lname" + (L.playing ? "" : " off"), L.name));
+
+    var isWorst = (L === worst);
+    var plot = h("div", "plot");
+    var svg = sv("svg", {
+      viewBox:"0 0 1000 " + VB_H, preserveAspectRatio:"none", role:"img",
+      "aria-label": L.name + ", " + (L.playing
+        ? (L.restarts ? "restarts " + L.restarts + " times tonight" : "plays through once")
+        : "paused")
+    });
+
+    /* the scale: 5 faint lines, inside the lane so they never cross a word */
+    TICKS.forEach(function(tt){
+      svg.appendChild(sv("rect", {
+        x:(tt / WINDOW * 1000).toFixed(2), y:0, width:1, height:VB_H, fill:"#26262b"
+      }));
+    });
+
+    if (L.playing){
+      /* the marked lane's track carries a dark tint of the hue, so the layer
+         the finding is about is identifiable before the ticks are read */
+      svg.appendChild(sv("rect", { x:0, y:VB_H / 2 - 1, width:1000, height:2,
+        fill: isWorst ? "#1b3a42" : "#3a3a3e" }));
+    } else {
+      /* a paused layer is a dashed track: its state is a different mark and
+         not only a dimmer one */
+      svg.appendChild(sv("line", { x1:0, y1:VB_H / 2, x2:1000, y2:VB_H / 2,
+        stroke:"#3a3a3e", "stroke-width":2, "stroke-dasharray":"3 4" }));
+    }
+
+    if (L.playing && L.restarts > 0){
+      /* a tick at every restart. The one hue goes here, on the layer the
+         finding is about, and nowhere else. */
+      var step = L.loop / WINDOW * 1000;
+      var count = 0;
+      for (var x = step; x < 999.5 && count < 400; x += step, count++){
+        svg.appendChild(sv("rect", {
+          x: x.toFixed(2), y: isWorst ? 4 : 8,
+          width: isWorst ? 2 : 1.5, height: isWorst ? VB_H - 8 : VB_H - 16,
+          fill: isWorst ? "#58b0c4" : "#787a82"
+        }));
+      }
+    }
+    plot.appendChild(svg);
+    lane.appendChild(plot);
+
+    var c = h("div", "lcount num");
+    if (!L.playing) c.appendChild(h("span", "dash", "\u2014"));
+    else if (L.restarts === 0) c.textContent = "0";
+    else c.appendChild(h("b", null, n(L.restarts)));
+    lane.appendChild(c);
+
+    lanes.appendChild(lane);
+  });
+
+  var axis = document.getElementById("axis");
+  TICKS.forEach(function(tt){
+    var s = h("span", null, clock(START + tt));
+    s.style.left = (tt / WINDOW * 100) + "%";
+    axis.appendChild(s);
+  });
+
+  var annot = document.getElementById("annot");
+  annot.appendChild(document.createTextNode("Ticks mark a restart. "));
+  annot.appendChild(h("b", null, worst.name));
+  annot.appendChild(document.createTextNode(
+    " is " + dur(worst.seconds) + " of source at " + worst.speed +
+    "\u00d7, so it begins again every " + dur(worst.loop) + "."
+  ));
+
+  /* ---------- the layer table ---------- */
+  var loudest = playing.slice().sort(function(a,b){ return b.level - a.level; })[0];
+  var quietest = playing.slice().sort(function(a,b){ return a.level - b.level; })[0];
+  var body = document.getElementById("layerbody");
+
+  LAYERS.forEach(function(L){
+    var tr = document.createElement("tr");
+
+    var td1 = h("td", "name");
+    td1.appendChild(document.createTextNode(L.name));
+    if (!L.playing) td1.appendChild(h("span", "sub", "Paused"));
+    tr.appendChild(td1);
+
+    var td2 = h("td", "num lvl");
+    var cell = h("div", "levelcell");
+    var bar = h("div", "bar" + (L === loudest ? " top" : ""));
+    var fill = h("i");
+    fill.style.width = L.level + "%";
+    bar.appendChild(fill);
+    cell.appendChild(bar);
+    cell.appendChild(h("span", "num", String(L.level)));
+    td2.appendChild(cell);
+    tr.appendChild(td2);
+
+    var td3 = h("td", "num loop");
+    td3.appendChild(document.createTextNode(dur(L.loop)));
+    if (L.speed !== 1) td3.appendChild(h("span", "unit", " at " + L.speed + "\u00d7"));
+    tr.appendChild(td3);
+
+    var td4 = h("td", "num restarts");
+    if (!L.playing) td4.appendChild(h("span", "dash", "\u2014"));
+    else td4.appendChild(document.createTextNode(n(L.restarts)));
+    tr.appendChild(td4);
+
+    body.appendChild(tr);
+  });
+
+  /* ---------- the mix summary, every figure from the rows ---------- */
+  var kv = document.getElementById("kv");
+  function pair(k, v){
+    kv.appendChild(h("dt", null, k));
+    kv.appendChild(h("dd", "num", v));
+  }
+  pair("Playing", playing.length + " of " + LAYERS.length);
+  pair("Window", dur(WINDOW));
+  pair("Restarts tonight", n(totalRestarts));
+  pair("Shortest source", dur(Math.min.apply(null, playing.map(function(L){ return L.loop; }))));
+  pair("Longest source", dur(Math.max.apply(null, playing.map(function(L){ return L.loop; }))));
+  pair("Loudest", loudest.name + " \u00b7 " + loudest.level);
+  pair("Quietest", quietest.name + " \u00b7 " + quietest.level);
+
+  /* ---------- the one primary action ---------- */
+  var on = true;
+  var tgl = document.getElementById("toggle");
+  var lab = document.getElementById("togglelabel");
+  var ico = tgl.querySelector("svg");
+  tgl.addEventListener("click", function(){
+    on = !on;
+    while (ico.firstChild) ico.removeChild(ico.firstChild);
+    if (on){
+      ico.appendChild(sv("rect", { x:8,  y:6, width:3, height:12, rx:1 }));
+      ico.appendChild(sv("rect", { x:13, y:6, width:3, height:12, rx:1 }));
+    } else {
+      ico.appendChild(sv("path", { d:"M9 6.5v11a1 1 0 0 0 1.5.87l8.5-5.5a1 1 0 0 0 0-1.74L10.5 5.6A1 1 0 0 0 9 6.5z" }));
+    }
+    lab.textContent = on ? "Pause" : "Play";
+  });
+})();
+</script>
+</body>
+</html>
