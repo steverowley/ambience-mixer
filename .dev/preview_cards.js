@@ -88,10 +88,10 @@ function row(s){
   return `
   <li class="${cls}">
     ${s.synth ? `<div class="thumb synth">${GLYPH}</div>` : '<div class="thumb"></div>'}
-    <button class="band${s.vol > 0 ? "" : " off"}">
+    <div class="band${s.vol > 0 ? "" : " off"}" role="slider" tabindex="0">
       <span class="cap"><span class="name">${s.name}</span><span class="near">${s.gone ? "unavailable" : s.inert ? "full volume (iOS)" : nearness(s.vol)}</span></span>
       <span class="wave">${strokes(s.key, s.vol)}</span>
-    </button>
+    </div>
     <button class="playbtn">${s.playing ? PAUSE : PLAY}</button>
     <button class="more" aria-expanded="${s.open ? "true" : "false"}">${CHEV}</button>
     ${extras}
@@ -99,17 +99,17 @@ function row(s){
 }
 
 const sounds = [
-  { name: "Pool ambience", key: "aJK6xiAx_Mg", vol: 75, playing: true, spd: 1,
+  { name: "Schwimmbad Geräusche zum Einschlafen und Entspannen (4 Stunden)", key: "aJK6xiAx_Mg", vol: 75, playing: true, spd: 1,
     status: '<span class="live">\u25cf playing</span> \u00b7 as recorded \u00b7 close' },
-  { name: "The cool river", key: "u3z2PO8W9ww", vol: 89, playing: true, spd: 0.75, open: true,
+  { name: "The Cool River", key: "u3z2PO8W9ww", vol: 89, playing: true, spd: 0.75, open: true,
     status: '<span class="live">\u25cf playing</span> \u00b7 a little slower \u00b7 filling the room' },
   { name: "Rain", key: "rain", vol: 60, playing: true, synth: true, tone: "balanced",
     status: '<span class="live">\u25cf playing</span> \u00b7 balanced \u00b7 across the room' },
-  { name: "Locker room", key: "OuYtZhrFo4U", vol: 30, playing: true, silent: true, muted: true, spd: 1,
+  { name: "Bathroom Ambience • Locker Room • Gym Background Sounds ~ Relax, Study, Sleep", key: "OuYtZhrFo4U", vol: 30, playing: true, silent: true, muted: true, spd: 1,
     status: '<span class="live">\u25cf playing</span> \u00b7 as recorded \u00b7 down the corridor \u00b7 muted' },
   { name: "Medieval Fantasy Tavern Ambience No Music", key: "tavern", vol: 22, gone: true, spd: 1,
     status: '<span class="gone">The owner has turned off playback on other sites.</span>' },
-  { name: "Showers", key: "58R8J9OIxdI", vol: 0, spd: 1,
+  { name: "Relaxing Locker Room Shower Sounds 10 Hours | Relaxation, Sleep, Study", key: "58R8J9OIxdI", vol: 0, spd: 1,
     status: 'paused \u00b7 as recorded \u00b7 silent' }
 ];
 
