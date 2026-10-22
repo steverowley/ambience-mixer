@@ -143,12 +143,15 @@ body{
   background:var(--lift); color:var(--ink-soft); border-color:var(--line)}
 .thumb.synth svg{width:22px; height:22px}
 
-/* the level: the whole band is the control */
+/* The level: the whole band is the control.
+   A div, not a button. A button with a fixed height centres and clips its
+   content, and the generic button rule sets height:44px, so the waveform
+   under the name was clipped out of existence. role="slider" plus a
+   tabindex gives the same keyboard access with none of that layout. */
 .band{
   display:block; width:100%; min-width:0;
-  background:none; border:0; padding:6px 0; margin:0;
-  color:inherit; font:inherit; text-align:left;
-  cursor:ew-resize; touch-action:pan-y; border-radius:6px;
+  padding:6px 0; border-radius:6px;
+  cursor:ew-resize; touch-action:pan-y;
 }
 .band:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
 .cap{display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:7px}
@@ -1456,13 +1459,13 @@ body.dialog-on{overflow:hidden}
             ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
             : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
           '<span class="sr-only" id="vname_'+L.uid+'">Level</span>'+
-          '<button class="band" id="vol_'+L.uid+'" role="slider" aria-valuemin="0" aria-valuemax="100"'+
-            ((IS_IOS && !synth)?' aria-disabled="true" title="iOS does not allow web pages to set the volume of a video"':'')+
+          '<div class="band" id="vol_'+L.uid+'" role="slider" aria-valuemin="0" aria-valuemax="100"'+
+            ((IS_IOS && !synth)?' aria-disabled="true" title="iOS does not allow web pages to set the volume of a video"':' tabindex="0"')+
             ' aria-labelledby="vname_'+L.uid+' title_'+L.uid+'">'+
             '<span class="cap"><span class="name" id="title_'+L.uid+'"></span>'+
               '<span class="near" id="vlab_'+L.uid+'"></span></span>'+
             '<span class="wave"><span class="strokes"></span></span>'+
-          '</button>'+
+          '</div>'+
           '<button class="playbtn" id="pp_'+L.uid+'" aria-label="Play" title="Play">'+ICON_PLAY+'</button>'+
           '<button class="more" id="exp_'+L.uid+'" aria-expanded="false" aria-controls="ex_'+L.uid+'" aria-label="More for this sound">'+ICON_CHEV+'</button>'+
           '<div class="extras" id="ex_'+L.uid+'" hidden>'+
