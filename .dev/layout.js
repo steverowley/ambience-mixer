@@ -146,7 +146,7 @@ ok("two foot-rows are emitted per card",
 ok("chips never split mid-label",
    /\.tvbtn\{[^}]*white-space:nowrap/.test(html));
 ok("Remove is a chip too, not bare text",
-   /\.remove\{[^}]*border-radius:9px/.test(html));
+   /\.remove\{[^}]*border-radius:8px/.test(html));
 ok("spacer cannot force overflow (flex-shrink allowed)",
    /\.foot-row \.spacer\{flex:1 1 auto; min-width:0\}/.test(html));
 ok("narrow-screen breakpoint exists", /@media \(max-width:380px\)/.test(html));

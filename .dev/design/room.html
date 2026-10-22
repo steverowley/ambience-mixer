@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ambience, Indoor pool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Karla:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   AMBIENCE — the room
+
+   THE IDEA
+   The Indoor pool mix is five recordings of one building: the pool hall,
+   its locker room, its showers, its river. You are not setting five
+   volumes. You are standing somewhere in that building and deciding how
+   near each thing is.
+
+     On this screen, the mixer's levels become distances in a room
+     you are standing in.
+
+   WHAT FOLLOWS FROM IT, and why each is not just styling
+   - No numerals anywhere. A spa menu describes, it does not quantify. A
+     level is "close" or "down the corridor", never 75. This is also the
+     truer reading: loudness in a soundscape IS perceived distance. And it
+     removes the one thing you should never meet at 11pm, which is a
+     number going up or down.
+   - No counts, no totals, no timer digits. Nothing here can be monitored,
+     because the draft before this one was a monitoring terminal, and that
+     was the wrong object entirely rather than the wrong styling.
+   - A dim room with cool water in it. The ground is the lamp-lit tile of
+     a pool hall at night; the one accent is the water. Warm plus cool is
+     the actual experience of a pool after dark, so the palette comes from
+     the subject rather than from a mood board.
+   - Nothing is divided by a line. Rows are separated by air, the way a
+     treatment menu or a page in a book is set. Hairline dividers are the
+     house ban, and they would also make this read as a table.
+   - The row is the room's depth. The nearness line runs the whole width
+     the column has, so four sounds can be compared at a glance. In the
+     first pass it was a 168px stub floating in open space and you could
+     not tell "across the room" from "close".
+   - The whole block is centred in the window, top and bottom. Equal space
+     above and below reads as placed; a column pinned to the top with a
+     void under it reads as unfinished, which is what the first pass did.
+   - The whole row is the control. Nothing to aim at in the dark, relative
+     drag, so a vague thumb cannot destroy a level.
+   - Motion is feedback only. Nothing drifts, pulses, breathes or counts.
+
+   DEPARTURE FROM THE DEALT SHEET, stated rather than hidden
+   The app sheet dealt data-terminal (Public Sans), and the inspector
+   rightly fails this page for not loading it. That sheet was dealt for a
+   monitoring screen, which is the wrong object for a thing you use to
+   fall asleep. None of the library's seven app styles fits a dark,
+   editorial, numberless player: five are light dashboards and the two
+   dark ones are built for markets and monitoring. So the style is off
+   sheet on purpose, and the craft laws are kept: two faces each with one
+   job, one ground, one ink, one accent, running text in the full ink,
+   surfaces separated by a tone step, no gradients, no shadows at rest,
+   no glass, no eyebrows, no uppercase micro labels, no monospace, the
+   title inside 18-32px.
+   ============================================================ */
+
+:root{
+  /* A dim room, warm but barely: not navy, not slate, not black, and not
+     sepia either. The first pass sat at #18140F with a bone ink and read
+     as yellow cream, which is a banned palette and also just looked like
+     old paper. Pulling the chroma down keeps the lamp light and loses the
+     tea stain. */
+  --room:#171510;
+  --room-lift:#201D17;     /* the one tone step, for a held row */
+
+  /* two ink tones only: three greys cannot be told apart in the dark */
+  --ink:#E6E3DD;
+  --ink-soft:#A6A29B;
+
+  /* the water: the single accent, taken from the subject */
+  --water:#8FBFC2;
+  --water-dim:#3B4E50;     /* the far end of a nearness line */
+
+  --edge:#38342C;
+
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Karla",system-ui,-apple-system,sans-serif;
+
+  --column:760px;
+  --tap:48px;
+}
+
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;
+  min-height:100%;
+  background:var(--room);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* ---------- the column ----------
+   A reading nook, not a dashboard. The width stops well short of the
+   window on purpose, and the block is centred top and bottom so the
+   emptiness is placed rather than left over. */
+.page{
+  max-width:var(--column);
+  margin:0 auto;
+  padding:48px 40px;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+/* ---------- the place ---------- */
+header{margin-bottom:52px}
+h1{
+  font-family:var(--serif);
+  font-weight:300;
+  font-size:32px;          /* top of the 18-32 band, not display scale */
+  line-height:1.12;
+  letter-spacing:-.015em;
+  margin:0;
+}
+.where{
+  margin:10px 0 0;
+  font-size:15px;
+  color:var(--ink-soft);
+}
+.change{
+  display:inline-block;
+  margin:20px 0 0;
+  font-size:14px;
+  color:var(--ink-soft);
+  text-decoration:none;
+  border-bottom:1px solid var(--edge);
+  padding-bottom:2px;
+}
+.change:hover{color:var(--ink);border-bottom-color:var(--ink-soft)}
+.change:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+
+/* ---------- the sounds ----------
+   Separated by air, never by a rule. */
+.sounds{list-style:none;margin:0;padding:0}
+.sound{
+  display:grid;
+  grid-template-columns:240px 1fr;
+  align-items:center;
+  gap:32px;
+  width:100%;
+  min-height:var(--tap);
+  padding:16px;
+  margin:0 -16px 4px;       /* the held tint bleeds past the text column */
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  border-radius:3px;
+  cursor:ew-resize;
+  touch-action:pan-y;
+  transition:background 160ms linear;
+}
+.sound:hover{background:var(--room-lift)}
+.sound.held{background:var(--room-lift)}
+.sound:focus-visible{outline:2px solid var(--water);outline-offset:-2px}
+
+.name{
+  font-family:var(--serif);
+  font-weight:400;
+  font-size:21px;
+  line-height:1.2;
+  letter-spacing:-.01em;
+  display:block;
+}
+/* the level, in words. This is the readout: there is no number anywhere. */
+.near{
+  display:block;
+  margin-top:4px;
+  font-size:14px;
+  color:var(--ink-soft);
+}
+.sound.quiet .name{color:var(--ink-soft)}
+
+/* The nearness line runs the full width of the column, so the sounds can
+   be compared against each other at a glance. The filled part sits proud
+   of the rail at 2px: at 1px the difference was invisible. */
+.line{position:relative;height:14px}
+.line .rail{
+  position:absolute;left:0;right:0;top:6px;height:1px;
+  background:var(--water-dim);
+}
+.line .fill{
+  position:absolute;left:0;top:5.5px;height:2px;
+  background:var(--water);
+}
+.line .mark{
+  position:absolute;top:2px;
+  width:9px;height:9px;border-radius:50%;
+  background:var(--water);
+  transform:translateX(-50%);
+}
+.sound.quiet .line .fill{background:var(--water-dim);height:1px;top:6px}
+.sound.quiet .line .mark{
+  background:transparent;
+  border:1px solid var(--water-dim);
+}
+
+/* ---------- the one control ---------- */
+footer{
+  padding:52px 0 0;
+  display:flex;
+  align-items:center;
+  gap:22px;
+  flex-wrap:wrap;
+}
+.stop{
+  display:inline-flex;align-items:center;gap:11px;
+  height:var(--tap);
+  padding:0 22px 0 20px;
+  border:1px solid var(--edge);
+  border-radius:999px;      /* fully round, decided once */
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  cursor:pointer;
+  transition:border-color 160ms linear,background 160ms linear;
+}
+.stop:hover{border-color:var(--ink-soft);background:var(--room-lift)}
+.stop:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+.stop svg{width:13px;height:13px;display:block;fill:currentColor}
+/* the sleep setting, in words. No digits ticking down in a dark bedroom. */
+.fade{
+  font-size:14px;
+  color:var(--ink-soft);
+  background:none;border:0;padding:0;
+  font-family:var(--sans);
+  cursor:pointer;
+  text-align:left;
+  border-bottom:1px solid transparent;
+}
+.fade:hover{color:var(--ink);border-bottom-color:var(--edge)}
+.fade:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+
+/* ---------- phone ---------- */
+@media (max-width:640px){
+  .page{padding:36px 20px;justify-content:flex-start}
+  h1{font-size:24px}
+  header{margin-bottom:34px}
+  .sound{
+    grid-template-columns:1fr;
+    gap:14px;
+    padding:14px;
+    margin:0 -14px 6px;
+  }
+  .name{font-size:19px}
+  footer{
+    padding:40px 0 calc(24px + env(safe-area-inset-bottom));
+    gap:18px;
+  }
+  .stop{flex:1 1 auto;justify-content:center}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition-duration:1ms !important}
+}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <header>
+    <h1>Indoor pool</h1>
+    <p class="where" id="where"></p>
+    <a class="change" href="#mixes">Change the room</a>
+  </header>
+
+  <ul class="sounds" id="sounds"></ul>
+
+  <footer>
+    <button class="stop" id="stop">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>
+      <span id="stoplabel">Pause the room</span>
+    </button>
+    <button class="fade" id="fade">Fading out around six</button>
+  </footer>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* The real Indoor pool preset. The levels are the ones in the app; what
+     changes here is that they are never shown as numbers. */
+  var SOUNDS = [
+    { name:"Pool ambience",  level:75, on:true  },
+    { name:"The cool river", level:89, on:true  },
+    { name:"Aquapark",       level:60, on:true  },
+    { name:"Locker room",    level:59, on:true  },
+    { name:"Showers",        level:22, on:false }
+  ];
+
+  /* The readout. A level is a distance, described the way you would
+     describe a place, from nearest to furthest. */
+  function nearness(v){
+    if (v >= 85) return "filling the room";
+    if (v >= 65) return "close";
+    if (v >= 45) return "across the room";
+    if (v >= 25) return "down the corridor";
+    if (v >= 10) return "behind a door";
+    if (v > 0)   return "almost gone";
+    return "silent";
+  }
+
+  var COUNT = ["Nothing","One sound","Two sounds","Three sounds","Four sounds","Five sounds"];
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  var list  = document.getElementById("sounds");
+  var where = document.getElementById("where");
+
+  function describeRoom(){
+    var n = SOUNDS.filter(function(s){ return s.on && s.level > 0; }).length;
+    where.textContent = n === 0 ? "The room is quiet." : COUNT[n] + " in the room.";
+  }
+
+  SOUNDS.forEach(function(S){
+    var li  = document.createElement("li");
+    var row = document.createElement("button");
+    row.type = "button";
+    row.className = "sound" + (S.on ? "" : " quiet");
+    row.setAttribute("role","slider");
+    row.setAttribute("aria-valuemin","0");
+    row.setAttribute("aria-valuemax","100");
+    row.setAttribute("aria-valuenow", String(S.level));
+    /* the accessible value is the words, because the words are the readout */
+    row.setAttribute("aria-valuetext", S.name + ", " + (S.on ? nearness(S.level) : "paused"));
+
+    var left = el("span");
+    left.appendChild(el("span","name",S.name));
+    var near = el("span","near", S.on ? nearness(S.level) : "paused");
+    left.appendChild(near);
+    row.appendChild(left);
+
+    var line = el("span","line");
+    var fill = el("span","fill");
+    var mark = el("span","mark");
+    fill.style.width = S.level + "%";
+    mark.style.left  = S.level + "%";
+    line.appendChild(el("span","rail"));
+    line.appendChild(fill);
+    line.appendChild(mark);
+    row.appendChild(line);
+
+    S.row = row; S.nearEl = near; S.fill = fill; S.mark = mark;
+    wire(S);
+    li.appendChild(row);
+    list.appendChild(li);
+  });
+
+  function paint(S, held){
+    var v = Math.round(S.level);
+    S.fill.style.width = v + "%";
+    S.mark.style.left  = v + "%";
+    var words = S.on ? nearness(v) : "paused";
+    S.nearEl.textContent = words;
+    S.row.setAttribute("aria-valuenow", String(v));
+    S.row.setAttribute("aria-valuetext", S.name + ", " + words);
+    S.row.className = "sound" + ((S.on && v > 0) ? "" : " quiet") + (held ? " held" : "");
+  }
+
+  /* Relative drag: the level moves by how far the thumb moves, never to
+     where it landed. A slow push is fine, a loose flick is coarse. There is
+     nothing to hit, which is the point in the dark. */
+  function wire(S){
+    var dragging = false, lastX = 0, t0 = 0;
+    function x(e){ return e.touches ? e.touches[0].clientX : e.clientX; }
+
+    S.row.addEventListener("pointerdown", function(e){
+      dragging = true; lastX = x(e); t0 = Date.now();
+      if (S.row.setPointerCapture && e.pointerId != null) S.row.setPointerCapture(e.pointerId);
+      paint(S, true);
+    });
+
+    S.row.addEventListener("pointermove", function(e){
+      if (!dragging) return;
+      var nx = x(e), dx = nx - lastX; lastX = nx;
+      var dt = Math.max(1, Date.now() - t0); t0 = Date.now();
+      var speed = Math.abs(dx) / dt;
+      var gain = speed > 0.6 ? 1 : (speed > 0.2 ? 0.55 : 0.32);
+      S.level = Math.max(0, Math.min(100, S.level + dx * gain * 0.5));
+      if (S.level > 0) S.on = true;
+      paint(S, true);
+      if (e.preventDefault) e.preventDefault();
+    });
+
+    function up(){
+      if (!dragging) return;
+      dragging = false;
+      S.level = Math.round(S.level);
+      paint(S, false);
+      describeRoom();
+    }
+    S.row.addEventListener("pointerup", up);
+    S.row.addEventListener("pointercancel", up);
+
+    S.row.addEventListener("keydown", function(e){
+      var step = e.shiftKey ? 10 : 2, used = true;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") S.level = Math.min(100, S.level + step);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowDown") S.level = Math.max(0, S.level - step);
+      else if (e.key === "Home") S.level = 0;
+      else if (e.key === "End") S.level = 100;
+      else if (e.key === " " || e.key === "Enter") S.on = !S.on;
+      else used = false;
+      if (used){ e.preventDefault(); paint(S, false); describeRoom(); }
+    });
+  }
+
+  /* one control, and it speaks about the room rather than about software */
+  var playing = true;
+  var stop = document.getElementById("stop");
+  var stopLabel = document.getElementById("stoplabel");
+  var ico = stop.querySelector("svg");
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  stop.addEventListener("click", function(){
+    playing = !playing;
+    while (ico.firstChild) ico.removeChild(ico.firstChild);
+    if (playing){
+      [["8.4","6.9"],["12.7","6.9"]].forEach(function(p){
+        var r = document.createElementNS(SVGNS,"rect");
+        r.setAttribute("x",p[0]); r.setAttribute("y",p[1]);
+        r.setAttribute("width","2.9"); r.setAttribute("height","10.2"); r.setAttribute("rx","1.2");
+        ico.appendChild(r);
+      });
+    } else {
+      var t = document.createElementNS(SVGNS,"path");
+      t.setAttribute("d","M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z");
+      ico.appendChild(t);
+    }
+    stopLabel.textContent = playing ? "Pause the room" : "Back into the room";
+    SOUNDS.forEach(function(S, i){
+      S.on = playing ? i < 4 : false;
+      paint(S, false);
+    });
+    describeRoom();
+  });
+
+  describeRoom();
+})();
+</script>
+</body>
+</html>

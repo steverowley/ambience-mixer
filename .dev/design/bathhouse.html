@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ambience, Bathhouse</title>
+<style>
+  /* ============================================================
+     BATHHOUSE
+     The mixer as a ritual object.
+
+     Reasons, one line each:
+     Ground  warm oxblood dark, because navy and slate are banned and a
+             warm ground holds the screen in the 25-45 degree hue band
+             that preserves dark adaptation.
+     Ink     bone at APCA Lc 84, not white, because white on near-black
+             is Lc 107 and halation dissolves the letterforms.
+     Two     only TWO text tones, because on a near-black field you cannot
+     tones   hold four distinct legible greys. The first draft tried and
+             produced meta text at Lc 34, which is unreadable. Remaining
+             hierarchy comes from size and weight.
+     Accent  rust in three tiers, the job in the name. Measured, not
+             eyeballed: deep rust is only Lc 26 against this ground, so it
+             cannot carry type or even a 2px rule.
+     Edges   borders and the level groove were Lc 0.0 in the first draft,
+             which means invisible. They are now measured against the
+             surface they actually sit on.
+     Buttons bordered, never a bright filled block, because a glowing
+             primary button is the worst thing on a screen you look at in
+             a dark bedroom. Bone on a rust fill measured Lc 59, under the
+             floor, so the fill was rejected outright.
+     Layout  one container divided by hairlines, because five identical
+             cards is the banned pattern and dividers carry the same
+             separation at a fraction of the weight.
+     Motion  feedback only. Nothing animates at rest.
+     Case    lowercase throughout, because tracked uppercase micro labels
+             are the strongest single weak-site tell in the data.
+
+     Every Lc figure here is produced by .dev/design/gate.js, not guessed.
+     ============================================================ */
+
+  :root{
+    /* surface ladder, flat colours, one tone step apart */
+    --g0:#191316;        /* ground */
+    --g1:#1F1719;        /* container */
+    --g2:#261D20;        /* row pressed, button rest */
+    --g3:#2E2326;        /* raised, button active */
+
+    /* two text tones, both verified against the LIGHTEST surface */
+    --ink:#E4DDD6;       /* Lc 83.6 */
+    --ink-dim:#C0B9B5;   /* Lc 62.2 */
+
+    /* structure, each measured on the surface it sits on */
+    --edge:#817974;      /* Lc 30.1 on --g2   button borders */
+    --track:#5D5753;     /* Lc 16.1 on --g1   unfilled level groove */
+    --line:#4C4744;      /* Lc 10.0 on --g1   hairline divider */
+
+    /* accent tiers */
+    --rust:#A8572F;      /* Lc 25.8  mass and fill only, never type */
+    --rust-lit:#C8957C;  /* Lc 50.2  level rule, primary edge, focus ring */
+    --rust-text:#D9B5A3; /* Lc 63.4  the only rust permitted on type */
+    --sage:#A6AC95;      /* Lc 52.7  live mark, a 7px graphic */
+
+    --grotesk:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+
+    --tap:48px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--g0);
+    color:var(--ink);
+    font-family:var(--grotesk);
+    font-size:16px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+    padding:0 0 calc(var(--tap) * 2);
+    min-height:100vh;
+    min-height:100dvh;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .wrap{max-width:560px;margin:0 auto;padding:0 20px}
+
+  /* ---- head ---- */
+  header{padding:38px 0 26px}
+  .mixname{
+    font-family:var(--serif);
+    font-size:28px;          /* inside the 18-32px app ceiling */
+    font-weight:400;
+    line-height:1.15;
+    margin:0;
+  }
+  .mixmeta{
+    margin:7px 0 0;
+    font-size:14px;
+    color:var(--ink-dim);
+    font-weight:400;
+  }
+
+  /* ---- the one container ---- */
+  .stack{
+    background:var(--g1);
+    border:1px solid var(--line);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .layer{
+    position:relative;
+    display:block;
+    width:100%;
+    border:0;
+    background:transparent;
+    color:inherit;
+    font:inherit;
+    text-align:left;
+    padding:15px 16px 17px;
+    min-height:var(--tap);
+    cursor:ew-resize;
+    touch-action:pan-y;
+    transition:background .14s linear;
+  }
+  .layer + .layer{border-top:1px solid var(--line)}
+  .layer:active,.layer.held{background:var(--g2)}
+  .layer:focus-visible{outline:2px solid var(--rust-lit);outline-offset:-2px}
+
+  .lrow{display:flex;align-items:baseline;gap:12px}
+  .lname{
+    font-size:16px;
+    font-weight:400;
+    color:var(--ink);
+    flex:1 1 auto;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .lval{
+    font-size:14px;
+    font-weight:500;
+    color:var(--ink-dim);
+    font-variant-numeric:tabular-nums;
+    flex:0 0 auto;
+  }
+  /* state carries a shape as well as a tone, never a hue alone */
+  .ldot{
+    flex:0 0 auto;
+    width:7px;height:7px;border-radius:50%;
+    background:transparent;
+    border:1px solid var(--ink-dim);
+    margin-bottom:1px;
+  }
+  .layer.on .ldot{background:var(--sage);border-color:var(--sage)}
+
+  /* level is a rule, not a widget. drag anywhere on the row. */
+  .track{
+    position:relative;
+    height:2px;
+    margin-top:11px;
+    background:var(--track);
+  }
+  .fill{
+    position:absolute;inset:0 auto 0 0;
+    background:var(--rust-lit);
+    width:0;
+  }
+  /* dimmed means "another layer is being auditioned", not "broken" */
+  .layer.dim .lname{color:var(--ink-dim)}
+  .layer.dim .fill{background:var(--track)}
+
+  .lnote{margin:9px 0 0;font-size:13px;color:var(--ink-dim)}
+
+  .label{margin:30px 0 11px;font-size:13px;color:var(--ink-dim)}
+
+  /* ---- other mixes as text rows, not cards ---- */
+  .presets{border-top:1px solid var(--line)}
+  .preset{
+    display:flex;align-items:baseline;gap:12px;
+    width:100%;
+    border:0;border-bottom:1px solid var(--line);
+    background:transparent;color:inherit;font:inherit;
+    text-align:left;
+    padding:14px 2px;
+    min-height:var(--tap);
+    cursor:pointer;
+  }
+  .preset:active{background:var(--g1)}
+  .preset:focus-visible{outline:2px solid var(--rust-lit);outline-offset:-2px}
+  .preset .pn{font-size:15px;flex:1 1 auto;color:var(--ink)}
+  .preset .pc{font-size:13px;color:var(--ink-dim);flex:0 0 auto}
+  .preset[aria-current="true"] .pn{color:var(--rust-text)}
+
+  /* ---- bottom bar, everything inside a thumb arc ---- */
+  .bar{
+    position:fixed;left:0;right:0;bottom:0;
+    background:var(--g1);
+    border-top:1px solid var(--line);
+    padding:12px 20px calc(12px + env(safe-area-inset-bottom));
+  }
+  .bar-in{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px}
+  .btn{
+    border:1px solid var(--edge);
+    background:var(--g2);
+    color:var(--ink);
+    font:inherit;font-size:14px;
+    padding:0 16px;
+    height:var(--tap);
+    border-radius:3px;
+    cursor:pointer;
+    display:inline-flex;align-items:center;gap:9px;
+    transition:background .14s linear,border-color .14s linear;
+  }
+  .btn:active{background:var(--g3)}
+  .btn:focus-visible{outline:2px solid var(--rust-lit);outline-offset:2px}
+  /* primary reads as primary through a rust edge and a weight step */
+  .btn.primary{border-color:var(--rust-lit);font-weight:500}
+  .btn .ico{width:15px;height:15px;fill:currentColor;display:block}
+  .spacer{flex:1 1 auto}
+  .timer{font-size:14px;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .timer b{color:var(--ink);font-weight:500}
+
+  .hint{margin:26px 0 0;font-size:13px;color:var(--ink-dim);max-width:46ch}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01ms !important;animation:none !important}
+  }
+  /* At 360px and below the bar needs 319px of a 280px budget, so it sheds the
+     words "sleep in" and tightens the buttons. The time itself stays, since
+     that is the part being read. Measured in .dev/design/geom.js. */
+  @media (max-width:360px){
+    .bar{padding-left:14px;padding-right:14px}
+    .btn{padding:0 13px}
+    .timer .tword{display:none}
+  }
+  @media (hover:hover){
+    .layer:hover{background:var(--g2)}
+    .btn:hover{border-color:var(--ink-dim)}
+    .btn.primary:hover{border-color:var(--rust-text)}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1 class="mixname">indoor pool</h1>
+    <p class="mixmeta" id="meta">five layers, four playing</p>
+  </header>
+
+  <div class="stack" id="stack"></div>
+
+  <p class="hint">
+    drag across a row to set its level. press and hold a row to hear it alone,
+    let go to return.
+  </p>
+
+  <p class="label">other mixes</p>
+  <div class="presets" id="presets"></div>
+</div>
+
+<div class="bar">
+  <div class="bar-in">
+    <button class="btn primary" id="toggle">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"></svg>
+      <span id="toggleLabel">pause</span>
+    </button>
+    <button class="btn" id="breathe">breathe</button>
+    <div class="spacer"></div>
+    <div class="timer"><span class="tword">sleep in </span><b id="left">42:10</b></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  /* Mockup only, no audio. The interaction model is real so the feel can be
+     judged on a phone: drag anywhere on a row to set level, press and hold to
+     audition a layer alone.
+
+     Markup is built with createElement and textContent throughout. There is
+     deliberately no path from data to markup in this file. */
+
+  var SVGNS="http://www.w3.org/2000/svg";
+
+  var LAYERS=[
+    {name:"pool ambience",  v:75, on:true,  note:"4 hours"},
+    {name:"the cool river", v:89, on:true,  note:"3m12s, repeats"},
+    {name:"aquapark",       v:60, on:true,  note:"11h 55m"},
+    {name:"locker room",    v:59, on:true,  note:"3 hours"},
+    {name:"showers",        v:22, on:false, note:"10 hours"}
+  ];
+  var MIXES=[
+    {n:"indoor pool", c:"pool, lockers, showers, river", cur:true},
+    {n:"rainy night", c:"rain, thunder, wind, clock"},
+    {n:"fireside",    c:"fire, blizzard, purring"},
+    {n:"night train", c:"carriage, rails, rain"},
+    {n:"dawn chorus", c:"birdsong, river, wind"}
+  ];
+  var WORDS=["nothing","one","two","three","four","five"];
+
+  var stack=document.getElementById("stack");
+  var soloIdx=null;
+
+  function render(){
+    while(stack.firstChild) stack.removeChild(stack.firstChild);
+
+    LAYERS.forEach(function(L,i){
+      var cls="layer";
+      if(L.on) cls+=" on";
+      if(soloIdx===i) cls+=" held";
+      else if(soloIdx!==null) cls+=" dim";
+
+      var b=document.createElement("button");
+      b.className=cls;
+      b.type="button";
+      b.setAttribute("role","slider");
+      b.setAttribute("aria-valuemin","0");
+      b.setAttribute("aria-valuemax","100");
+      b.setAttribute("aria-valuenow",String(Math.round(L.v)));
+      b.setAttribute("aria-valuetext",
+        L.name+", "+Math.round(L.v)+" percent"+(L.on?"":", paused"));
+
+      var row=document.createElement("div"); row.className="lrow";
+      var dot=document.createElement("span"); dot.className="ldot";
+      var nm=document.createElement("span"); nm.className="lname";
+      nm.textContent=L.name;
+      var vl=document.createElement("span"); vl.className="lval";
+      vl.textContent=Math.round(L.v);
+      row.appendChild(dot); row.appendChild(nm); row.appendChild(vl);
+
+      var tr=document.createElement("div"); tr.className="track";
+      var fi=document.createElement("div"); fi.className="fill";
+      fi.style.width=L.v+"%";
+      tr.appendChild(fi);
+
+      var nt=document.createElement("p"); nt.className="lnote";
+      nt.textContent=L.on?L.note:"paused, "+L.note;
+
+      b.appendChild(row); b.appendChild(tr); b.appendChild(nt);
+      wire(b,i,fi,vl);
+      stack.appendChild(b);
+    });
+
+    var n=LAYERS.filter(function(L){return L.on;}).length;
+    document.getElementById("meta").textContent="five layers, "+WORDS[n]+" playing";
+  }
+
+  /* Relative drag with velocity sensitivity: a vague flick is coarse, a slow
+     push is fine. Nothing jumps to the finger, so there is nothing to aim at
+     and no way to destroy a level by tapping the wrong pixel. */
+  function wire(el,i,fill,valEl){
+    var dragging=false,lastX=0,moved=0,t0=0,holdT=null;
+
+    function px(e){ return e.touches?e.touches[0].clientX:e.clientX; }
+
+    el.addEventListener("pointerdown",function(e){
+      dragging=true; moved=0; lastX=px(e); t0=Date.now();
+      if(el.setPointerCapture&&e.pointerId!=null) el.setPointerCapture(e.pointerId);
+      holdT=setTimeout(function(){
+        if(moved<6){ soloIdx=i; render(); }
+      },420);
+    });
+
+    el.addEventListener("pointermove",function(e){
+      if(!dragging) return;
+      var x=px(e),dx=x-lastX; lastX=x;
+      moved+=Math.abs(dx);
+      if(moved>6) clearTimeout(holdT);
+      var dt=Math.max(1,Date.now()-t0); t0=Date.now();
+      var speed=Math.abs(dx)/dt;                  /* px per ms */
+      var gain=speed>0.6?1:(speed>0.2?0.55:0.3);  /* slow push = fine */
+      var L=LAYERS[i];
+      L.v=Math.max(0,Math.min(100,L.v+dx*gain*0.55));
+      var r=Math.round(L.v);
+      fill.style.width=r+"%";
+      valEl.textContent=r;
+      el.setAttribute("aria-valuenow",String(r));
+      if(e.preventDefault) e.preventDefault();
+    });
+
+    function up(){
+      if(!dragging) return;
+      dragging=false; clearTimeout(holdT);
+      LAYERS[i].v=Math.round(LAYERS[i].v);
+      /* releasing always restores the mix, so a half-asleep reader cannot
+         walk away having left one layer soloed */
+      if(soloIdx===i) soloIdx=null;
+      render();
+    }
+    el.addEventListener("pointerup",up);
+    el.addEventListener("pointercancel",up);
+
+    el.addEventListener("keydown",function(e){
+      var L=LAYERS[i],step=e.shiftKey?10:1,used=true;
+      if(e.key==="ArrowRight"||e.key==="ArrowUp") L.v=Math.min(100,L.v+step);
+      else if(e.key==="ArrowLeft"||e.key==="ArrowDown") L.v=Math.max(0,L.v-step);
+      else if(e.key==="Home") L.v=0;
+      else if(e.key==="End") L.v=100;
+      else if(e.key===" "||e.key==="Enter") L.on=!L.on;
+      else used=false;
+      if(used){ e.preventDefault(); render(); }
+    });
+  }
+
+  var mixBox=document.getElementById("presets");
+  MIXES.forEach(function(m){
+    var b=document.createElement("button");
+    b.className="preset"; b.type="button";
+    if(m.cur) b.setAttribute("aria-current","true");
+    var n=document.createElement("span"); n.className="pn"; n.textContent=m.n;
+    var c=document.createElement("span"); c.className="pc"; c.textContent=m.c;
+    b.appendChild(n); b.appendChild(c);
+    mixBox.appendChild(b);
+  });
+
+  /* Icons drawn as SVG nodes, geometrically centred in the 24 box rather than
+     relying on a text glyph's side bearings, which never centre. */
+  var playing=true;
+  var tgl=document.getElementById("toggle");
+  var tlabel=document.getElementById("toggleLabel");
+  var ico=tgl.querySelector(".ico");
+
+  function setIcon(){
+    while(ico.firstChild) ico.removeChild(ico.firstChild);
+    if(playing){
+      [["8.4","6.9"],["12.7","6.9"]].forEach(function(p){
+        var r=document.createElementNS(SVGNS,"rect");
+        r.setAttribute("x",p[0]); r.setAttribute("y",p[1]);
+        r.setAttribute("width","2.9"); r.setAttribute("height","10.2");
+        r.setAttribute("rx","1.2");
+        ico.appendChild(r);
+      });
+    }else{
+      var t=document.createElementNS(SVGNS,"path");
+      t.setAttribute("d","M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z");
+      ico.appendChild(t);
+    }
+    tlabel.textContent=playing?"pause":"play";
+    tgl.setAttribute("aria-label",playing?"Pause everything":"Play everything");
+  }
+
+  tgl.addEventListener("click",function(){
+    playing=!playing;
+    LAYERS.forEach(function(L,k){ L.on = playing ? k<4 : false; });
+    setIcon(); render();
+  });
+
+  /* The countdown is printed only so the bar can be judged with real text in
+     it. A shipped version would say "about 40 minutes", because clock
+     watching is a behaviour sleep therapy actively targets. */
+  var secs=42*60+10;
+  setInterval(function(){
+    if(secs<=0) return;
+    secs--;
+    var m=Math.floor(secs/60),s=secs%60;
+    document.getElementById("left").textContent=m+":"+(s<10?"0":"")+s;
+  },1000);
+
+  setIcon();
+  render();
+})();
+</script>
+</body>
+</html>

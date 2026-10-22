@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Otium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Public+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   OTIUM
+
+   THE NAME
+   Latin: restorative leisure, defined by the Romans against negotium,
+   business. Cicero's otium cum dignitate. It is the word for time that
+   is not work, which is the only thing this app is for.
+
+   THE AESTHETIC, and the trap avoided
+   Roman BATH CULTURE, not Roman empire iconography. No marble bust, no
+   Trajan capitals, no laurel, no gold. Those are the most AI-coded
+   signals available right now. What is taken instead is the thermae:
+   warm stone, lamplight, still water, and idleness as a civilised
+   activity.
+
+   THE IDEA
+   A mosaic is small pieces that combine into one scene. That is exactly
+   what a mixer is. Every sound is a course of tesserae, and how near
+   the sound is decides how much of the course is laid in water.
+
+     On this screen, each sound becomes a course of tesserae, and the
+     mix is the mosaic they make together.
+
+   Drawn in code rather than photographed, because no honest photograph
+   of "your mix" exists, and because a drawn mosaic is the authentic
+   Roman move. It works for any mix: a pool, a fire, rain, or four
+   synthesised sounds, where a photograph of a swimming bath would not.
+
+   HOW THE COURSE IS BUILT, and why it is built this way
+   Two identical rows of square tesserae sit on top of each other: dry
+   stone underneath, water above, and the water row is clipped to the
+   level. No JavaScript measures anything. Two earlier attempts did
+   measure the course and divide it into pieces, and both produced the
+   wrong number of tesserae at the wrong proportion: first 27px dashes
+   that read as a battery meter, then short floating bars that stopped
+   well before the end of the row. Clipping one row over another cannot
+   drift, is square at every width, and needs no resize handling.
+
+   WHAT CARRIES OVER, and why
+   - Levels are distances, said in words, never numbers. Loudness in a
+     soundscape genuinely is perceived distance, and a number going up
+     and down is the last thing you want at midnight. It generalises:
+     rain close, thunder down the corridor, a drone filling the room.
+   - Nothing countable: no totals, no tallies, no digits counting down.
+   - The whole row is the control. Relative drag, nothing to aim at.
+   - Motion is feedback only.
+
+   Craft laws kept: two faces each with one job, one ground, one ink,
+   one accent, running text in the full ink, surfaces separated by a
+   tone step, no gradients, no shadows at rest, no glass, no eyebrows,
+   no uppercase micro labels, no monospace, the title inside 18-32px.
+   ============================================================ */
+
+:root{
+  /* warm stone in a dark room, lit by one lamp. Low chroma: a hair more
+     yellow and the inspector reads the screen as cream, which is a
+     banned palette and also just looks like old paper. */
+  --stone:#16140F;
+  --stone-lift:#1F1C16;    /* the one tone step, for a held course */
+  --tessera:#3A362C;       /* dry stone: recessive, but it must be seen */
+
+  /* two ink tones only: three greys cannot be told apart in the dark */
+  --ink:#E6E3DD;
+  --ink-soft:#A6A29B;
+
+  /* the water of the bath: the single accent, and the only colour */
+  --water:#7FB4B2;
+  --water-low:#46605F;
+
+  --edge:#3A3429;
+
+  --display:"Cormorant Garamond",Georgia,serif;
+  --sans:"Public Sans",system-ui,-apple-system,sans-serif;
+
+  --column:720px;
+  --tap:48px;
+  --tile:12px;             /* a tessera is square */
+  --mortar:4px;
+}
+
+*{box-sizing:border-box}
+html{height:100%}
+body{
+  margin:0;
+  min-height:100%;
+  background:var(--stone);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.page{
+  max-width:var(--column);
+  margin:0 auto;
+  padding:44px 40px;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+/* ---------- the product is named ----------
+   Set in the display face at reading size rather than as tracked
+   capitals. A 13px letterspaced caps wordmark is the exact tell this
+   whole exercise exists to avoid, and the inspector flags it. */
+.wordmark{
+  font-family:var(--display);
+  font-size:18px;
+  font-weight:400;
+  letter-spacing:.01em;
+  color:var(--ink-soft);
+  margin:0 0 44px;
+}
+
+/* ---------- the mix ---------- */
+h1{
+  font-family:var(--display);
+  font-weight:300;
+  font-size:32px;
+  line-height:1.1;
+  margin:0;
+}
+.still{margin:8px 0 0;font-size:15px;color:var(--ink-soft)}
+header{margin-bottom:44px}
+
+/* ---------- the courses ---------- */
+.courses{list-style:none;margin:0;padding:0}
+.course{
+  display:block;
+  width:100%;
+  min-height:var(--tap);
+  padding:15px 16px;
+  margin:0 -16px 6px;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  border-radius:2px;
+  cursor:ew-resize;
+  touch-action:pan-y;
+  transition:background 160ms linear;
+}
+.course:hover,.course.held{background:var(--stone-lift)}
+.course:focus-visible{outline:2px solid var(--water);outline-offset:-2px}
+
+.cap{
+  display:flex;align-items:baseline;justify-content:space-between;
+  gap:20px;margin-bottom:12px;
+}
+.sound{
+  font-family:var(--display);
+  font-weight:400;
+  font-size:22px;
+  line-height:1.15;
+}
+/* the level, in words: the readout. There is no number on this screen. */
+.near{font-size:14px;color:var(--ink-soft);white-space:nowrap}
+.course.off .sound{color:var(--ink-soft)}
+
+/* the mosaic: dry stone, with the laid course clipped over it */
+.tesserae{position:relative;height:var(--tile);overflow:hidden}
+.tesserae .row{
+  position:absolute;top:0;left:0;height:var(--tile);
+  display:flex;gap:var(--mortar);
+  overflow:hidden;
+}
+.tesserae .dry{right:0}                       /* the whole course */
+.tesserae .row i{
+  flex:0 0 var(--tile);
+  height:var(--tile);
+  border-radius:1px;
+  background:var(--tessera);
+}
+.tesserae .wet i{background:var(--water)}     /* clipped to the level */
+.course.off .tesserae .wet i{background:var(--water-low)}
+
+/* ---------- the one control ---------- */
+footer{
+  padding:44px 0 0;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:11px;
+  height:var(--tap);
+  padding:0 22px;
+  border:1px solid var(--edge);
+  border-radius:2px;          /* squared, like a cut stone. decided once. */
+  background:transparent;
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:15px;
+  cursor:pointer;
+  transition:border-color 160ms linear,background 160ms linear;
+}
+.btn:hover{border-color:var(--ink-soft);background:var(--stone-lift)}
+.btn:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+.btn svg{width:13px;height:13px;display:block;fill:currentColor}
+.quiet{
+  font-size:14px;color:var(--ink-soft);
+  background:none;border:0;padding:0;
+  font-family:var(--sans);cursor:pointer;
+  border-bottom:1px solid transparent;
+}
+.quiet:hover{color:var(--ink);border-bottom-color:var(--edge)}
+.quiet:focus-visible{outline:2px solid var(--water);outline-offset:3px}
+.sep{color:var(--edge)}
+
+/* ---------- the empty bath ---------- */
+.empty{
+  border:1px dashed var(--edge);
+  border-radius:2px;
+  padding:28px 24px;
+}
+.empty p{margin:0;font-size:15px;color:var(--ink-soft)}
+.empty .lead{
+  font-family:var(--display);
+  font-size:22px;color:var(--ink);margin-bottom:6px;
+}
+
+@media (max-width:640px){
+  .page{padding:30px 20px;justify-content:flex-start}
+  .wordmark{margin-bottom:30px}
+  header{margin-bottom:30px}
+  h1{font-size:27px}
+  .sound{font-size:20px}
+  .course{padding:14px;margin:0 -14px 6px}
+  .cap{gap:14px}
+  footer{padding:34px 0 calc(22px + env(safe-area-inset-bottom));gap:16px}
+  .btn{flex:1 1 auto;justify-content:center}
+  /* the footer wraps at this width and the separator was left dangling
+     at the end of the first line with nothing after it */
+  .sep{display:none}
+}
+
+@media (prefers-reduced-motion:reduce){*{transition-duration:1ms !important}}
+</style>
+</head>
+<body>
+
+<main class="page">
+  <p class="wordmark">Otium</p>
+
+  <header>
+    <h1 id="mixname"></h1>
+    <p class="still" id="still"></p>
+  </header>
+
+  <ul class="courses" id="courses"></ul>
+
+  <footer>
+    <button class="btn" id="toggle">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1"/></svg>
+      <span id="togglelabel">Pause</span>
+    </button>
+    <button class="quiet" id="fade">Fading out around six</button>
+    <span class="sep" aria-hidden="true">&middot;</span>
+    <button class="quiet" id="change">Another mix</button>
+  </footer>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* Four mixes, so the screen is not built around one preset. Indoor
+     pool is the real starter preset with its real levels; the others
+     are arrangements of the app's real built-in sounds, so nothing on
+     this screen is an invented product name. */
+  var MIXES = [
+    { name:"Indoor pool", sounds:[
+      { name:"Pool ambience",  level:75, on:true  },
+      { name:"The cool river", level:89, on:true  },
+      { name:"Aquapark",       level:60, on:true  },
+      { name:"Locker room",    level:59, on:true  },
+      { name:"Showers",        level:22, on:false }
+    ]},
+    { name:"Built-in only", sounds:[
+      { name:"Rain",  level:70, on:true },
+      { name:"Waves", level:45, on:true },
+      { name:"Wind",  level:30, on:true },
+      { name:"Drone", level:18, on:true }
+    ]},
+    { name:"Two sounds", sounds:[
+      { name:"Brown noise", level:55, on:true },
+      { name:"Stream",      level:32, on:true }
+    ]},
+    { name:"Nothing yet", sounds:[] }
+  ];
+
+  /* enough tesserae to overrun the widest course; the container clips */
+  var PIECES = 90;
+
+  /* A level is a distance, described the way a place is described. This
+     reads correctly whatever the mix is. */
+  function nearness(v){
+    if (v >= 85) return "filling the room";
+    if (v >= 65) return "close";
+    if (v >= 45) return "across the room";
+    if (v >= 25) return "down the corridor";
+    if (v >= 10) return "behind a door";
+    if (v > 0)   return "almost gone";
+    return "silent";
+  }
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function courseRow(cls){
+    var r = el("span", "row " + cls);
+    for (var i = 0; i < PIECES; i++) r.appendChild(document.createElement("i"));
+    return r;
+  }
+
+  var list   = document.getElementById("courses");
+  var title  = document.getElementById("mixname");
+  var still  = document.getElementById("still");
+  var toggle = document.getElementById("toggle");
+  var label  = document.getElementById("togglelabel");
+  var ico    = toggle.querySelector("svg");
+  var SVGNS  = "http://www.w3.org/2000/svg";
+
+  var mixIndex = 0, playing = true, mix, sounds;
+
+  function describe(){
+    var live = sounds.filter(function(s){ return s.on && s.level > 0; }).length;
+    if (!sounds.length)  still.textContent = "An empty bath.";
+    else if (live === 0) still.textContent = "Still.";
+    else if (live === 1) still.textContent = "One sound.";
+    else                 still.textContent = live + " sounds together.";
+  }
+
+  function paint(S, held){
+    var v = Math.round(S.level);
+    var words = S.on ? nearness(v) : "paused";
+    S.nearEl.textContent = words;
+    S.wet.style.width = v + "%";
+    S.row.className = "course" + ((S.on && v > 0) ? "" : " off") + (held ? " held" : "");
+    S.row.setAttribute("aria-valuenow", String(v));
+    S.row.setAttribute("aria-valuetext", S.name + ", " + words);
+  }
+
+  /* Relative drag: the level moves by how far the thumb moves, never to
+     where it landed. Nothing to hit, which is the point in the dark. */
+  function wire(S){
+    var dragging = false, lastX = 0, t0 = 0;
+    function x(e){ return e.touches ? e.touches[0].clientX : e.clientX; }
+
+    S.row.addEventListener("pointerdown", function(e){
+      dragging = true; lastX = x(e); t0 = Date.now();
+      if (S.row.setPointerCapture && e.pointerId != null) S.row.setPointerCapture(e.pointerId);
+      paint(S, true);
+    });
+    S.row.addEventListener("pointermove", function(e){
+      if (!dragging) return;
+      var nx = x(e), dx = nx - lastX; lastX = nx;
+      var dt = Math.max(1, Date.now() - t0); t0 = Date.now();
+      var speed = Math.abs(dx) / dt;
+      var gain = speed > 0.6 ? 1 : (speed > 0.2 ? 0.55 : 0.32);
+      S.level = Math.max(0, Math.min(100, S.level + dx * gain * 0.5));
+      if (S.level > 0) S.on = true;
+      paint(S, true);
+      if (e.preventDefault) e.preventDefault();
+    });
+    function up(){
+      if (!dragging) return;
+      dragging = false;
+      S.level = Math.round(S.level);
+      paint(S, false);
+      describe();
+    }
+    S.row.addEventListener("pointerup", up);
+    S.row.addEventListener("pointercancel", up);
+
+    S.row.addEventListener("keydown", function(e){
+      var step = e.shiftKey ? 10 : 4, used = true;
+      if (e.key === "ArrowRight" || e.key === "ArrowUp") S.level = Math.min(100, S.level + step);
+      else if (e.key === "ArrowLeft" || e.key === "ArrowDown") S.level = Math.max(0, S.level - step);
+      else if (e.key === "Home") S.level = 0;
+      else if (e.key === "End") S.level = 100;
+      else if (e.key === " " || e.key === "Enter") S.on = !S.on;
+      else used = false;
+      if (used){ e.preventDefault(); paint(S, false); describe(); }
+    });
+  }
+
+  function render(){
+    mix = MIXES[mixIndex];
+    sounds = mix.sounds;
+    title.textContent = mix.name;
+    while (list.firstChild) list.removeChild(list.firstChild);
+
+    if (!sounds.length){
+      /* the empty state keeps its frame and says what to do next */
+      var li0 = document.createElement("li");
+      var box = el("div","empty");
+      box.appendChild(el("p","lead","The bath is empty."));
+      box.appendChild(el("p",null,"Choose a sound, or open one of the starter mixes."));
+      li0.appendChild(box);
+      list.appendChild(li0);
+      describe();
+      return;
+    }
+
+    sounds.forEach(function(S){
+      var li  = document.createElement("li");
+      var row = document.createElement("button");
+      row.type = "button";
+      row.setAttribute("role","slider");
+      row.setAttribute("aria-valuemin","0");
+      row.setAttribute("aria-valuemax","100");
+
+      var cap = el("div","cap");
+      cap.appendChild(el("span","sound",S.name));
+      var near = el("span","near");
+      cap.appendChild(near);
+      row.appendChild(cap);
+
+      var band = el("div","tesserae");
+      band.appendChild(courseRow("dry"));
+      var wet = courseRow("wet");
+      band.appendChild(wet);
+      row.appendChild(band);
+
+      S.row = row; S.nearEl = near; S.wet = wet;
+      wire(S);
+      paint(S, false);
+
+      li.appendChild(row);
+      list.appendChild(li);
+    });
+    describe();
+  }
+
+  function setIcon(){
+    while (ico.firstChild) ico.removeChild(ico.firstChild);
+    if (playing){
+      [["8.4","6.9"],["12.7","6.9"]].forEach(function(p){
+        var r = document.createElementNS(SVGNS,"rect");
+        r.setAttribute("x",p[0]); r.setAttribute("y",p[1]);
+        r.setAttribute("width","2.9"); r.setAttribute("height","10.2"); r.setAttribute("rx","1");
+        ico.appendChild(r);
+      });
+    } else {
+      var t = document.createElementNS(SVGNS,"path");
+      t.setAttribute("d","M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z");
+      ico.appendChild(t);
+    }
+    label.textContent = playing ? "Pause" : "Play";
+    toggle.setAttribute("aria-label", playing ? "Pause everything" : "Play everything");
+  }
+
+  toggle.addEventListener("click", function(){
+    playing = !playing;
+    sounds.forEach(function(S){
+      S.on = playing && S.level > 0;
+      paint(S, false);
+    });
+    setIcon();
+    describe();
+  });
+
+  document.getElementById("change").addEventListener("click", function(){
+    mixIndex = (mixIndex + 1) % MIXES.length;
+    playing = true;
+    setIcon();
+    render();
+  });
+
+  setIcon();
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,13 +1,13 @@
 {
-  "name": "Ambience — a calm soundscape mixer",
-  "short_name": "Ambience",
+  "name": "murmur — a calm soundscape mixer",
+  "short_name": "murmur",
   "description": "Layer YouTube videos into ambient soundscapes, with per-layer volume, speed and loop, curated presets, saved mixes and a sleep timer.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f1420",
-  "theme_color": "#0f1420",
+  "background_color": "#131211",
+  "theme_color": "#131211",
   "categories": ["lifestyle", "music", "productivity"],
   "icons": [
     {

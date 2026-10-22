@@ -42,6 +42,10 @@ function run(ua, touchPoints, opts) {
           if (/\sdisabled(?=[\s>])/.test(t)) c.disabled = true;
           const ti = t.match(/\stitle="([^"]*)"/);
           if (ti) c.title = ti[1];
+          /* The per-layer level is a div, not an input: inertness is carried
+             by aria-disabled now, and the drag wiring bails out on it. */
+          const ad = t.match(/\saria-disabled="([^"]*)"/);
+          if (ad) c.setAttribute("aria-disabled", ad[1]);
           this.appendChild(c); byId[id] = c;
         }
       },
@@ -183,15 +187,15 @@ ok("a video layer does NOT claim to be playing", v.playing === false,
    "playing=" + v.playing);
 ok("iOS never calls playVideo() off the gesture", ios.played() === 0,
    "playVideo called " + ios.played() + "×");
-ok("its volume slider is disabled", ios.byId["vol_" + v.uid] &&
-   ios.byId["vol_" + v.uid].disabled === true);
+ok("its volume control is inert", ios.byId["vol_" + v.uid] &&
+   ios.byId["vol_" + v.uid].getAttribute("aria-disabled") === "true");
 ok("the disabled slider explains why", /iOS does not allow/.test(
    (ios.byId["vol_" + v.uid] || {}).title || ""));
 
 const s = ios.T.addLayer({ synth: "rain", volume: 55, autoplay: true });
 ok("a built-in sound DOES play", s.playing === true, "playing=" + s.playing);
-ok("its volume slider stays enabled", ios.byId["vol_" + s.uid] &&
-   !ios.byId["vol_" + s.uid].disabled);
+ok("its volume control stays live", ios.byId["vol_" + s.uid] &&
+   !ios.byId["vol_" + s.uid].getAttribute("aria-disabled"));
 
 /* The touch handlers must actually resume a suspended context. */
 ios.suspend();
@@ -212,8 +216,8 @@ const dv = mac.T.addLayer({ videoId: "x7SQaDTSrVg", volume: 70, autoplay: true }
 mac.drainReady();                       // the YouTube API reports ready
 ok("a video layer autoplays as before", dv.playing === true, "playing=" + dv.playing);
 ok("playVideo() was actually called", mac.played() > 0);
-ok("its volume slider is enabled", mac.byId["vol_" + dv.uid] &&
-   !mac.byId["vol_" + dv.uid].disabled);
+ok("its volume control is live", mac.byId["vol_" + dv.uid] &&
+   !mac.byId["vol_" + dv.uid].getAttribute("aria-disabled"));
 
 console.log("\n=== Android: full capability, must NOT take the iOS path ===\n");
 const ANDROIDS = {
