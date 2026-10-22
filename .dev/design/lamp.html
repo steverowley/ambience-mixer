@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ambience, Lamp</title>
+<style>
+  /* ============================================================
+     LAMP
+     The mixer as one light source in a dark room.
+
+     Reasons, one line each:
+     Ground  near-black warm neutral, not #000, because pure black has no
+             elevation headroom and smears on OLED scroll.
+     Light   four discrete flat tonal steps, never a gradient or a blur.
+             Gradients are banned, and stepping forces a more deliberate
+             result than a glow would.
+     Field   distance from a low-anchored centre sets level, so one
+             gesture replaces five sliders and the useful radius sits
+             inside the thumb arc of a phone held in bed.
+     Coding  level is carried three ways at once: radius, disc size and
+             disc tone. Redundant coding is what survives peripheral,
+             half-asleep vision. The tone ladder only spans Lc 29 to 58,
+             about 9 Lc per step against the 12 I wanted, which is
+             acceptable ONLY because radius and size carry it too.
+     Floor   the quietest audible layer sits at Lc 29 and a paused layer
+             at Lc 46, because the first draft had them at Lc 10 and
+             Lc 0.0: a paused layer was literally invisible.
+     Anon    NO labels on the field at rest. This is the big trade-off in
+             this direction. Radial labels overflowed the screen by up to
+             106px on every phone size, and the honest fix was not to
+             shrink them but to drop them: angles are fixed per layer, so
+             position is the identity, and touching a disc names it in the
+             readout. A field of five anonymous discs is harder to learn
+             and faster to use once learned.
+     Geom    the radius is bounded by the chrome at BOTH ends. The first
+             draft only accounted for the top and overflowed the bottom
+             bar on all five test viewports, including the one I was
+             designing against.
+     Rings   flat 1px circles ARE the scale, so they are data rather than
+             ornament. Deliberately faint at Lc 12, because radius and
+             size already carry the reading.
+     Type    one grotesque, two tones, 400 and 500 only, lowercase, living
+             at the edges and never over the field.
+     Motion  feedback only. The field is still at rest. Drift is opt-in,
+             off by default, and respects prefers-reduced-motion.
+
+     Lc figures from .dev/design/gate.js, geometry from .dev/design/geom.js.
+     Neither was guessed.
+     ============================================================ */
+
+  :root{
+    /* warm neutral ladder. the ban on navy applies to the ground as much
+       as to the accents, so blue never leads. */
+    --g0:#141311;
+    --g1:#1C1A18;
+    --g2:#24221F;
+
+    /* two text tones, verified against the lightest surface */
+    --ink:#E2DDD8;        /* Lc 84.0 */
+    --ink-dim:#C0BBB6;    /* Lc 63.7 */
+
+    --edge:#7C7876;       /* Lc 30.0 on --g1   button borders */
+
+    /* the lamp: four flat steps, measured, no gradient anywhere */
+    --lamp-1:#E0A355;     /* Lc 58.3  loudest */
+    --lamp-2:#C7914C;     /* Lc 47.9 */
+    --lamp-3:#AF7F42;     /* Lc 38.2 */
+    --lamp-4:#966D39;     /* Lc 29.0  quietest, still findable */
+    /* paused is a 1.5px outline, so it is a FINE graphic held to Lc 45, not
+       the Lc 25 a filled disc gets away with. It ends up brighter than the
+       quietest audible layer, which is correct: paused is signalled by shape,
+       a hollow ring against a filled disc, never by being dimmer. */
+    --lamp-off:#9B9794;   /* Lc 45.8  paused outline and listener ring */
+    --ring:#4F4C47;       /* Lc 12.2  the scale, faint on purpose */
+    --amber-text:#E6B474; /* Lc 64.4  the only amber permitted on type */
+
+    --grotesk:"Helvetica Neue",Helvetica,Arial,system-ui,sans-serif;
+    --tap:48px;
+    --bar-pad:14px;       /* read by geom.js to compute the bar height */
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--g0);
+    color:var(--ink);
+    font-family:var(--grotesk);
+    font-size:16px;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:none;
+  }
+
+  /* ---- the field ---- */
+  #field{position:fixed;inset:0;display:block;width:100%;height:100%}
+
+  /* ---- chrome, at the edges only ---- */
+  .top{
+    position:fixed;top:0;left:0;right:0;
+    height:60px;                 /* TOPCH in the script, checked by geom.js */
+    padding:calc(18px + env(safe-area-inset-top)) 20px 0;
+    display:flex;align-items:baseline;gap:10px;
+    pointer-events:none;
+  }
+  .name{font-size:17px;font-weight:500}
+  .meta{font-size:13px;color:var(--ink-dim)}
+
+  .bottom{
+    position:fixed;left:0;right:0;bottom:0;
+    padding:var(--bar-pad) 16px calc(var(--bar-pad) + env(safe-area-inset-bottom));
+    display:flex;align-items:center;gap:10px;
+  }
+  .btn{
+    border:1px solid var(--edge);
+    background:var(--g1);
+    color:var(--ink);
+    font:inherit;font-size:14px;
+    height:var(--tap);
+    min-width:var(--tap);
+    padding:0 15px;
+    border-radius:3px;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    cursor:pointer;
+    transition:background .14s linear,border-color .14s linear;
+  }
+  .btn:active{background:var(--g2)}
+  .btn:focus-visible{outline:2px solid var(--amber-text);outline-offset:2px}
+  .btn.icon{padding:0}
+  .btn .ico{width:16px;height:16px;fill:currentColor;display:block}
+  /* pressed uses an amber edge plus the amber TEXT tier, because --lamp-1 at
+     Lc 58 is under the floor for a 14px label */
+  .btn[aria-pressed="true"]{border-color:var(--lamp-3);color:var(--amber-text)}
+  .spacer{flex:1 1 auto}
+  .timer{font-size:14px;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* The readout is the ONLY place a layer is named. It sits at the top, not
+     the middle: the middle is where the field is, and the top is the one
+     region a hand reaching from the bottom never covers. */
+  .readout{
+    position:fixed;left:20px;right:20px;
+    top:calc(64px + env(safe-area-inset-top));
+    display:flex;align-items:baseline;gap:10px;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .16s linear;
+  }
+  .readout.on{opacity:1}
+  .readout .rn{font-size:15px;color:var(--ink)}
+  .readout .rv{
+    font-size:15px;font-weight:500;color:var(--amber-text);
+    font-variant-numeric:tabular-nums;
+  }
+  /* the mix summary steps aside while a layer is being named, so the two
+     never stack on top of each other */
+  .top.muted{opacity:0;transition:opacity .16s linear}
+
+  .help{
+    position:fixed;left:20px;right:20px;
+    bottom:calc(var(--tap) + 34px + env(safe-area-inset-bottom));
+    font-size:13px;color:var(--ink-dim);
+    text-align:center;
+    pointer-events:none;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition-duration:.01ms !important}
+  }
+  @media (hover:hover){
+    .btn:hover{background:var(--g2);border-color:var(--ink-dim)}
+  }
+</style>
+</head>
+<body>
+
+<div class="top" id="top">
+  <span class="name">indoor pool</span>
+  <span class="meta" id="meta">four playing</span>
+</div>
+
+<div class="readout" id="readout">
+  <span class="rn" id="rn"></span>
+  <span class="rv" id="rv"></span>
+</div>
+
+<svg id="field" aria-label="Sound field. Each disc is a layer. Nearer the centre is louder."></svg>
+
+<p class="help" id="help">drag a disc toward the centre to bring it forward</p>
+
+<div class="bottom">
+  <button class="btn icon" id="toggle" aria-label="Pause everything">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"></svg>
+  </button>
+  <button class="btn" id="drift" aria-pressed="false">drift</button>
+  <div class="spacer"></div>
+  <div class="timer"><span id="left">42:10</span></div>
+</div>
+
+<script>
+(function(){
+  /* Mockup only, no audio. The field, the mapping and the drag behaviour are
+     real so the feel can be judged on a phone.
+
+     Literal hexes rather than var(): CSS custom properties in SVG
+     presentation attributes are not reliable in Safari, and Safari on a real
+     iPhone is the acceptance target. */
+
+  var SVGNS="http://www.w3.org/2000/svg";
+  var LAMP_1="#E0A355", LAMP_2="#C7914C", LAMP_3="#AF7F42", LAMP_4="#966D39",
+      LAMP_OFF="#9B9794", RING="#4F4C47";
+
+  /* Chrome heights. These MUST match the stylesheet; .dev/design/geom.js
+     asserts that they do, because the first draft let them drift and the
+     field ran under the bottom bar on every phone size. */
+  var TOPCH=60;          /* .top height */
+  var BARPAD=14;         /* --bar-pad */
+  var TAP=48;            /* --tap */
+  var BARH=TAP+BARPAD*2; /* 76 */
+
+  var DISC_BASE=10, DISC_SPAN=19;
+  var MAXDISC=DISC_BASE+DISC_SPAN;   /* a layer at level 100 */
+  var SIDEPAD=18;
+
+  var field=document.getElementById("field");
+
+  /* Angles are fixed per layer so the mix keeps a stable spatial identity:
+     the river is always lower right, the showers always upper right. With no
+     labels on the field, position IS the identity, so these must never be
+     reassigned once a mix exists. */
+  var LAYERS=[
+    {name:"pool ambience",  v:75, a:-100, on:true},
+    {name:"the cool river", v:89, a:  38, on:true},
+    {name:"aquapark",       v:60, a: 150, on:true},
+    {name:"locker room",    v:59, a:-150, on:true},
+    {name:"showers",        v:22, a: -38, on:false}
+  ];
+  var WORDS=["nothing","one","two","three","four","five"];
+
+  var W=0,H=0,CX=0,CY=0,MINR=0,MAXR=0;
+  var held=null, driftOn=false, driftT=null;
+
+  function measure(){
+    W=window.innerWidth; H=window.innerHeight;
+    CX=W/2;
+
+    /* the free band between the two pieces of chrome */
+    var top=TOPCH, bot=H-BARH, freeH=bot-top;
+
+    /* Anchor low in portrait so the radius falls inside a thumb arc. On a
+       short screen a low anchor leaves no room at all, so centre it instead
+       and accept a smaller field. */
+    CY = top + freeH * (freeH < 400 ? 0.5 : 0.72);
+
+    MINR=Math.max(46, Math.min(W,H)*0.11);
+    MAXR=Math.min(
+      CX - SIDEPAD - MAXDISC,    /* sideways */
+      CY - top - MAXDISC,        /* clear of the top chrome */
+      bot - CY - MAXDISC         /* clear of the bottom bar */
+    );
+    /* If the screen cannot give 40px of travel, take it out of the inner
+       radius. Never out of MAXR, which is the only thing keeping the field
+       on the screen. */
+    if(MAXR < MINR + 40) MINR = Math.max(26, MAXR - 40);
+  }
+
+  function r(v){ return MAXR - (v/100)*(MAXR-MINR); }   /* louder is nearer */
+  function vFromR(rad){
+    return Math.max(0,Math.min(100,(MAXR-rad)/(MAXR-MINR)*100));
+  }
+  function discR(v){ return DISC_BASE + (v/100)*DISC_SPAN; }
+  function tone(L){
+    if(!L.on) return LAMP_OFF;
+    if(L.v>=72) return LAMP_1;
+    if(L.v>=48) return LAMP_2;
+    if(L.v>=24) return LAMP_3;
+    return LAMP_4;
+  }
+
+  function el(name,attrs){
+    var n=document.createElementNS(SVGNS,name);
+    for(var k in attrs) if(attrs.hasOwnProperty(k)) n.setAttribute(k,attrs[k]);
+    return n;
+  }
+
+  function draw(){
+    measure();
+    field.setAttribute("viewBox","0 0 "+W+" "+H);
+    while(field.firstChild) field.removeChild(field.firstChild);
+
+    /* The scale: flat 1px circles at the four tone thresholds, so the rings
+       mean something rather than decorating. */
+    [100,72,48,24].forEach(function(v){
+      field.appendChild(el("circle",{
+        cx:CX, cy:CY, r:r(v), fill:"none", stroke:RING, "stroke-width":"1"
+      }));
+    });
+
+    /* The listener: a small open ring, not a dot, so it never reads as a
+       layer sitting at full volume. */
+    field.appendChild(el("circle",{
+      cx:CX, cy:CY, r:5, fill:"none", stroke:LAMP_OFF, "stroke-width":"1"
+    }));
+
+    LAYERS.forEach(function(L,i){
+      var rad=r(L.v), ang=L.a*Math.PI/180;
+      var x=CX+Math.cos(ang)*rad, y=CY+Math.sin(ang)*rad;
+
+      var g=el("g",{
+        tabindex:"0",
+        role:"slider",
+        "aria-valuemin":"0",
+        "aria-valuemax":"100",
+        "aria-valuenow":String(Math.round(L.v)),
+        /* the name lives here and nowhere else on the field, so a screen
+           reader must carry it even though the eye cannot see it */
+        "aria-valuetext":L.name+", "+Math.round(L.v)+" percent"+(L.on?"":", paused")
+      });
+      g.style.cursor="grab";
+
+      /* Generous invisible hit area: nothing to aim at in the dark. */
+      g.appendChild(el("circle",{
+        cx:x, cy:y, r:Math.max(30,discR(L.v)+16), fill:"transparent"
+      }));
+
+      if(L.on){
+        g.appendChild(el("circle",{cx:x, cy:y, r:discR(L.v), fill:tone(L)}));
+      }else{
+        /* paused is an outline, so state is a shape and not only a tone */
+        g.appendChild(el("circle",{
+          cx:x, cy:y, r:discR(L.v), fill:"none",
+          stroke:LAMP_OFF, "stroke-width":"1.5"
+        }));
+      }
+
+      /* the held disc gains a thin ring, so the thing under your thumb is
+         identifiable without a label and without moving */
+      if(held===i){
+        g.appendChild(el("circle",{
+          cx:x, cy:y, r:discR(L.v)+7, fill:"none",
+          stroke:LAMP_OFF, "stroke-width":"1"
+        }));
+      }
+
+      wire(g,i);
+      field.appendChild(g);
+    });
+
+    var n=LAYERS.filter(function(L){return L.on;}).length;
+    document.getElementById("meta").textContent=WORDS[n]+" playing";
+  }
+
+  var ro=document.getElementById("readout"),
+      rn=document.getElementById("rn"),
+      rv=document.getElementById("rv"),
+      topBar=document.getElementById("top");
+
+  function showReadout(i){
+    rn.textContent=LAYERS[i].name;
+    rv.textContent=Math.round(LAYERS[i].v);
+    ro.classList.add("on");
+    topBar.classList.add("muted");
+  }
+  function hideReadout(){
+    ro.classList.remove("on");
+    topBar.classList.remove("muted");
+  }
+
+  function wire(g,i){
+    var dragging=false, moved=0;
+
+    g.addEventListener("pointerdown",function(e){
+      dragging=true; moved=0; held=i;
+      if(g.setPointerCapture&&e.pointerId!=null) g.setPointerCapture(e.pointerId);
+      showReadout(i);
+      draw();
+      e.preventDefault();
+    });
+
+    g.addEventListener("pointermove",function(e){
+      if(!dragging) return;
+      moved+=4;
+      var dx=e.clientX-CX, dy=e.clientY-CY;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      LAYERS[i].a=Math.atan2(dy,dx)*180/Math.PI;
+      LAYERS[i].v=vFromR(Math.max(MINR,Math.min(MAXR,dist)));
+      rv.textContent=Math.round(LAYERS[i].v);
+      draw();
+      e.preventDefault();
+    });
+
+    function up(){
+      if(!dragging) return;
+      dragging=false;
+      LAYERS[i].v=Math.round(LAYERS[i].v);
+      held=null;
+      hideReadout();
+      draw();
+    }
+    g.addEventListener("pointerup",up);
+    g.addEventListener("pointercancel",up);
+
+    /* Keyboard and screen-reader path. Without this the field is a dead end,
+       because there is nothing to tab to inside an SVG otherwise. */
+    g.addEventListener("focus",function(){ showReadout(i); });
+    g.addEventListener("blur",hideReadout);
+    g.addEventListener("keydown",function(e){
+      var L=LAYERS[i], step=e.shiftKey?10:2, used=true;
+      if(e.key==="ArrowUp"||e.key==="ArrowRight") L.v=Math.min(100,L.v+step);
+      else if(e.key==="ArrowDown"||e.key==="ArrowLeft") L.v=Math.max(0,L.v-step);
+      else if(e.key==="Home") L.v=0;
+      else if(e.key==="End") L.v=100;
+      else if(e.key===" "||e.key==="Enter") L.on=!L.on;
+      else used=false;
+      if(used){
+        e.preventDefault();
+        held=i; showReadout(i); draw();
+      }
+    });
+  }
+
+  /* Optional drift. The best gesture count in the dark is zero, so the field
+     can wander on its own. Off by default, and a slow wander rather than
+     anything that pulses: this is the one place motion is not feedback, so it
+     has to be a choice the reader makes deliberately. */
+  document.getElementById("drift").addEventListener("click",function(){
+    driftOn=!driftOn;
+    this.setAttribute("aria-pressed",String(driftOn));
+    document.getElementById("help").textContent = driftOn
+      ? "the mix is drifting. drag a disc to take it back."
+      : "drag a disc toward the centre to bring it forward";
+    clearInterval(driftT);
+    if(driftOn && !window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      driftT=setInterval(function(){
+        LAYERS.forEach(function(L,k){
+          L.a += (k%2 ? 0.09 : -0.07);
+          L.v = Math.max(8,Math.min(100,L.v + Math.sin(Date.now()/9000+k)*0.12));
+        });
+        draw();
+      },90);
+    }
+  });
+
+  /* Icons drawn as SVG nodes, geometrically centred in the 24 box rather than
+     relying on a text glyph's side bearings, which never centre. */
+  var playing=true;
+  var tgl=document.getElementById("toggle");
+  var ico=tgl.querySelector(".ico");
+
+  function setIcon(){
+    while(ico.firstChild) ico.removeChild(ico.firstChild);
+    if(playing){
+      [["8.4","6.9"],["12.7","6.9"]].forEach(function(p){
+        ico.appendChild(el("rect",{
+          x:p[0], y:p[1], width:"2.9", height:"10.2", rx:"1.2"
+        }));
+      });
+    }else{
+      ico.appendChild(el("path",{
+        d:"M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"
+      }));
+    }
+    tgl.setAttribute("aria-label",playing?"Pause everything":"Play everything");
+  }
+
+  tgl.addEventListener("click",function(){
+    playing=!playing;
+    LAYERS.forEach(function(L,k){ L.on = playing ? k<4 : false; });
+    setIcon(); draw();
+  });
+
+  var secs=42*60+10;
+  setInterval(function(){
+    if(secs<=0) return;
+    secs--;
+    var m=Math.floor(secs/60),s=secs%60;
+    document.getElementById("left").textContent=m+":"+(s<10?"0":"")+s;
+  },1000);
+
+  window.addEventListener("resize",draw);
+  window.addEventListener("orientationchange",draw);
+  setIcon();
+  draw();
+})();
+</script>
+</body>
+</html>
