@@ -498,7 +498,17 @@ ok("the update offer never reloads on its own", /btnUpdate"\)\.addEventListener/
 ok("accepting an update flushes the session first", /btnUpdate"\)\.addEventListener\("click",function\(\)\{\s*flushSession\(\)/.test(html));
 ok("the waiting worker is told to activate", /postMessage\("skipWaiting"\)/.test(html));
 ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
-ok("the cache version was bumped", /murmur-v4/.test(sw));
+/* The cache name is a hash of index.html, so the shell cannot change
+   without sw.js changing too. That matters because the update prompt only
+   fires when the worker changes: navigations are network-first so a reload
+   is always fresh, but an app left playing all night never learns there is
+   a new build. Run node .dev/stamp.js after editing index.html. */
+const shellTag = "murmur-" + require("crypto").createHash("sha1")
+  .update(fs.readFileSync(path.join(__dirname, "..", "index.html")))
+  .digest("hex").slice(0, 8);
+ok("the service worker is stamped with the current shell",
+   sw.indexOf('var CACHE = "' + shellTag + '"') !== -1,
+   "stale stamp: run node .dev/stamp.js");
 ok("Later dismisses without reloading", /btnUpdateLater[\s\S]{0,140}hidden=true/.test(html));
 
 // ---- contextual controls ----
