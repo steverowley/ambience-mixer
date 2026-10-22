@@ -517,7 +517,7 @@ ok("Share is disabled with no layers", dis("btnShare"));
 ok("a disabled control explains itself", /Add a layer first|Add a layer before/.test(byId.btnPlayAll.title + byId.btnSave.title));
 
 /* A synth layer needs no YouTube player, so it actually reaches the playing
-   state in the stub — the video path throws on the absent iframe API. */
+   state in the stub: the video path throws on the absent iframe API. */
 const cl = T.addLayer({ synth: "rain", volume: 60, autoplay: false });
 ok("Play all enables once a layer exists", !dis("btnPlayAll"));
 ok("Pause all stays disabled while nothing plays", dis("btnStopAll"));
@@ -576,7 +576,7 @@ const pool = T.PRESETS.find(p => p.name === "Indoor pool");
 ok("the preset exists", !!pool);
 ok("it is offered first", T.PRESETS[0].name === "Indoor pool");
 ok("it has five layers", pool && pool.layers.length === 5, pool && pool.layers.length);
-ok("every id is a bare 11-character video id — no timecodes",
+ok("every id is a bare 11-character video id: no timecodes",
    pool.layers.every(l => /^[A-Za-z0-9_-]{11}$/.test(l.id)));
 ok("the blend matches the shared link exactly", (function(){
   const want = { aJK6xiAx_Mg:[75,1], u3z2PO8W9ww:[59,1], OuYtZhrFo4U:[22,1],

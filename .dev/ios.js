@@ -32,7 +32,7 @@ function run(ua, touchPoints, opts) {
       set innerHTML(v){
         this._html = v; this.children = [];
         /* Every id in the markup, with whether that tag carries `disabled`
-           and any title — enough for the app to find and drive its controls. */
+           and any title: enough for the app to find and drive its controls. */
         const tags = String(v).match(/<[a-zA-Z][^>]*>/g) || [];
         for (const t of tags) {
           const id = (t.match(/id="([^"]+)"/) || [])[1];
@@ -129,7 +129,7 @@ function run(ua, touchPoints, opts) {
   /* A YouTube player that records whether playVideo was ever called. onReady
      fires only when the harness drains it: in life it arrives well after
      `L.player = new YT.Player(...)` has returned, and firing it synchronously
-     would leave L.player unassigned — an artifact, not a real behaviour. */
+     would leave L.player unassigned: an artifact, not a real behaviour. */
   let played = 0;
   let quality = null;
   const pendingReady = [];
@@ -226,7 +226,7 @@ const ANDROIDS = {
   "Firefox on Android": "Mozilla/5.0 (Android 14; Mobile; rv:127.0) Gecko/127.0 Firefox/127.0"
 };
 for (const [name, ua] of Object.entries(ANDROIDS)) {
-  /* Touch points are high on Android too — the iPadOS heuristic must not
+  /* Touch points are high on Android too: the iPadOS heuristic must not
      catch it, which it only avoids by also requiring "Macintosh". */
   const a = run(ua, 5, { wakeLock: true });
   ok(name + ": not treated as iOS", a.T.isIOS() === false);

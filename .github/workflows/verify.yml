@@ -35,7 +35,7 @@ jobs:
         run: node .dev/audit.js --ci
 
       # Runs the app under an iPhone user agent and asserts the platform
-      # adaptations fire — and that desktop behaviour is untouched.
+      # adaptations fire, and that desktop behaviour is untouched.
       - name: Platform behaviour (iOS, Android, desktop)
         run: node .dev/ios.js
 

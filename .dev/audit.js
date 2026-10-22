@@ -2,7 +2,7 @@
 /* Bug hunt: drive the real app through hostile and edge-case sequences and
    assert invariants, rather than testing the happy path.
 
-   This is deliberately adversarial — imported files, rapid toggling,
+   This is deliberately adversarial: imported files, rapid toggling,
    removal mid-fade, states the UI cannot reach but data can.
    Run: node .dev/audit.js */
 
@@ -32,7 +32,7 @@ for (const k of writtenKeys) {
 
 // 2. Theatre mode is video-only; nothing should be able to target a synth.
 if (!/function enterTheatre\(L\)\{[\s\S]{0,400}isSynth\(L\)\) return/.test(html)) {
-  bug("HIGH", "theatre", "enterTheatre() has no guard against synth layers — an imported mix with {kind:'wa', visualiser:true} would blow a 66px gradient tile fullscreen with no video");
+  bug("HIGH", "theatre", "enterTheatre() has no guard against synth layers: an imported mix with {kind:'wa', visualiser:true} would blow a 66px gradient tile fullscreen with no video");
 }
 
 // 3. Unguarded element lookups, but only for IDs that some card variant omits.
@@ -41,7 +41,7 @@ const variantOnly = ["loop_", "spd_", "tone_", "tv_", "retry_"];
 const idRefs = [...html.matchAll(/document\.getElementById\("(\w+_)"\+L\.uid\)(\.\w+)/g)];
 for (const m of idRefs) {
   if (variantOnly.includes(m[1])) {
-    bug("HIGH", "render", `unguarded getElementById("${m[1]}") + ${m[2]} — that element is absent on the other card variant, so this throws`);
+    bug("HIGH", "render", `unguarded getElementById("${m[1]}") + ${m[2]}: that element is absent on the other card variant, so this throws`);
   }
 }
 
@@ -55,22 +55,22 @@ for (const t of timerVars) {
 
 // 5. Sleep timer must survive a reload, or a 2h timer silently dies on refresh.
 if (!/sleepEndsAt/.test(restoreFn) && !/endsAt/.test(written)) {
-  bug("MEDIUM", "sleep", "the sleep timer's end time is never persisted — refreshing, or the phone evicting the tab, silently cancels a running timer and audio plays all night");
+  bug("MEDIUM", "sleep", "the sleep timer's end time is never persisted: refreshing, or the phone evicting the tab, silently cancels a running timer and audio plays all night");
 }
 
 // 6. A 400ms debounced save loses the last change if the tab closes first.
 if (/sessionT=setTimeout/.test(html) && !/addEventListener\("(pagehide|beforeunload)"/.test(html)) {
-  bug("MEDIUM", "session", "saveSession is debounced 400ms with no pagehide/beforeunload flush — the last change before closing the tab is lost");
+  bug("MEDIUM", "session", "saveSession is debounced 400ms with no pagehide/beforeunload flush: the last change before closing the tab is lost");
 }
 
 // 7. ENDED with loop off leaves the card claiming to play.
 if (/ENDED && L\.loop/.test(html) && !/ENDED[\s\S]{0,200}else[\s\S]{0,60}playing=false/.test(html)) {
-  bug("MEDIUM", "playback", "when a video ends and Loop is off, L.playing is never cleared — the card keeps showing 'playing' and a glowing border over silence");
+  bug("MEDIUM", "playback", "when a video ends and Loop is off, L.playing is never cleared: the card keeps showing 'playing' and a glowing border over silence");
 }
 
 // 8. Loop is meaningless on a synth (they are endless), but is still stored.
 if (/loop:L\.loop/.test(html) && !/delete base\.loop/.test(html)) {
-  bug("LOW", "synth", "loop is persisted for synth layers where it has no meaning — harmless but it makes shared links and exports carry a lie");
+  bug("LOW", "synth", "loop is persisted for synth layers where it has no meaning: harmless but it makes shared links and exports carry a lie");
 }
 
 /* ---------- runtime: drive the app ---------- */
@@ -200,7 +200,7 @@ if (T) {
   try {
     T.enterTheatre(syn);
     if (T.theatre() === syn) {
-      bug("HIGH", "theatre", "enterTheatre() accepted a synth layer — there is no video to show, so the visualiser fills the screen with an empty tile");
+      bug("HIGH", "theatre", "enterTheatre() accepted a synth layer: there is no video to show, so the visualiser fills the screen with an empty tile");
     }
     T.exitTheatre();
   } catch (e) { bug("HIGH", "theatre", "enterTheatre() on a synth layer threw: " + e.message); }
@@ -213,7 +213,7 @@ if (T) {
   const hadRamp = T.ramps().length > 0;
   T.removeLayer(a);
   if (hadRamp && T.ramps().some(r => r.L === a)) {
-    bug("HIGH", "fade", "removeLayer() left a ramp pointing at a destroyed layer — the rAF loop keeps calling applyVolume on it forever");
+    bug("HIGH", "fade", "removeLayer() left a ramp pointing at a destroyed layer: the rAF loop keeps calling applyVolume on it forever");
   }
 
   // C. Solo + remove the soloed layer: everything must not stay silenced.
@@ -232,7 +232,7 @@ if (T) {
   d1.ready = true;
   T.setSleep(15);
   T.setSleep(0);
-  if (T.fade() !== 1) bug("HIGH", "sleep", "cancelling the sleep timer left fadeFactor at " + T.fade() + " — every layer stays quiet");
+  if (T.fade() !== 1) bug("HIGH", "sleep", "cancelling the sleep timer left fadeFactor at " + T.fade() + ". Every layer stays quiet");
 
   // E. Import a mix naming a synth that does not exist.
   reset();
@@ -266,7 +266,7 @@ if (T) {
   T.addLayer({ videoId: "x7SQaDTSrVg", volume: 60, autoplay: false });
   T.addLayer({ videoId: "x7SQaDTSrVg", volume: 60, autoplay: false });
   if (T.layers().length === 2 && !/already a layer/.test(html)) {
-    bug("LOW", "ux", "the same video can be added twice with no warning — two decoders playing identical audio, which just sounds like phasing");
+    bug("LOW", "ux", "the same video can be added twice with no warning: two decoders playing identical audio, which just sounds like phasing");
   }
 
   // J. Retry on a layer that was never unavailable.

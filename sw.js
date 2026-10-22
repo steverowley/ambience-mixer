@@ -1,12 +1,12 @@
 /* Ambience service worker.
    The whole app is a single HTML file, so a cache-first shell gives full
    offline use of the UI, presets and saved mixes. Audio still needs the
-   network — YouTube is not cacheable and must not be intercepted. */
+   network: YouTube is not cacheable and must not be intercepted. */
 var CACHE = "murmur-v4";
 var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 /* The page asks for the new worker to take over when the reader accepts the
-   update prompt. Without this the new build waits until every tab is closed —
+   update prompt. Without this the new build waits until every tab is closed
    which for an app left open all night may be days. */
 self.addEventListener("message", function (e) {
   if (e.data === "skipWaiting") self.skipWaiting();
@@ -40,7 +40,7 @@ self.addEventListener("fetch", function (e) {
 
   var url = new URL(req.url);
   /* Only ever handle our own origin. YouTube, the iframe API and Google Fonts
-     must reach the network untouched — intercepting them breaks playback. */
+     must reach the network untouched: intercepting them breaks playback. */
   if (url.origin !== self.location.origin) return;
 
   /* Network-first for navigations so a deploy is picked up immediately,

@@ -28,7 +28,7 @@ CHARS = (
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
     "0123456789"
-    " .,:;!?'\"()[]{}-–—_/\\&@#%+=*×·…“”‘’"
+    " .,:;!?'\"()[]{}-–: _/\\&@#%+=*×·…“”‘’"
 )
 
 
