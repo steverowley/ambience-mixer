@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>murmur: the sheets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     MURMUR
+
+     Latin murmur: a humming, a muttering, the roar of water. It is also
+     plain English, and it describes what this app produces: several
+     quiet sounds heard as one.
+
+     WHAT THIS SCREEN IS, which is the whole redesign
+     A player, not a builder. The previous version was a workbench: a
+     utility toolbar, a rail of seven synth chips, a URL field, a grid of
+     320px panels each carrying a thumbnail, a title, a status line, two
+     sliders and five buttons, then a preset rail, a saved-mix rail, a
+     paragraph of help and a permanent dock. Forty-odd controls, all
+     visible, all of the time, on a screen whose job is to be looked at
+     in the dark while falling asleep.
+
+     Now the screen answers one question: what am I listening to? That
+     is the wordmark, the mix, one row per sound, and one line of
+     transport. Everything that BUILDS a mix is real and unchanged, but
+     it lives behind a sheet you open on purpose and close again.
+
+     A SOUND IS A ROW
+     Name, distance, waveform. Nothing else is permanently visible. Per
+     layer there are still loop, mute, solo, visualise, retry, speed or
+     tone and remove; they live in the row you expanded, because a
+     control you need once a week should not be lit all night.
+
+     THE LANGUAGE
+     One typeface, Figtree, doing every job. Lowercase for everything the
+     app says about itself; anything the user or YouTube wrote keeps its
+     own case, because text-transform on someone else's title is
+     vandalism. NO accent colour anywhere: state is brightness, shape and
+     words, so an error never shouts in red at someone trying to sleep.
+     Two ink tones, because three greys cannot be told apart in the dark.
+     No gradients, no backdrop-filter, no shadows at rest, no glow.
+     Motion is feedback only.
+
+     DARKNESS, which is not a style choice
+     The ground is a warm near-black, never #000: pure black smears on
+     OLED while scrolling, leaves no headroom for elevation and
+     maximises halation. Ink is never #FFFFFF, which measures brighter
+     than the recommended maximum. Body text stays at 16px and weight
+     400 or above, because hairline type dissolves in the dark through
+     irradiation.
+     ============================================================ */
+:root{
+  --night:#131211;        /* the ground: warm near-black, not navy */
+  --raised:#1A1917;       /* a sheet: one tone step up, never glass */
+  --lift:#211F1C;         /* hover and held: one step again */
+
+  --ink:#E8E6E1;
+  --ink-soft:#9D9A94;     /* the only other text tone that exists */
+
+  --wave:#8C8881;         /* a sound that is playing */
+  --wave-off:#45423E;     /* a sound that is not */
+
+  --line:#2E2B27;
+  --edge:#332F2B;
+
+  --radius:14px; --radius-sm:10px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --wave-h:30px;
+  --tap:44px;
+  --column:760px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; font-weight:400; line-height:1.55;
+  color:var(--ink); background:var(--night); min-height:100vh;
+  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
+
+/* ---------- the page ---------- */
+.page{
+  max-width:var(--column); margin:0 auto;
+  padding:40px 32px calc(40px + env(safe-area-inset-bottom));
+  /* Content height, not viewport height. Forcing 100dvh and pushing the
+     transport down with margin-top:auto opened a 556px hole between the
+     sounds and the controls whenever the mix was short, which reads as a
+     page that failed to load rather than as calm space. */
+  display:flex; flex-direction:column;
+}
+.wordmark{font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--ink-soft); margin:0 0 38px}
+
+/* what is playing */
+.now{margin:0 0 30px}
+.now h1{font-size:30px; font-weight:300; letter-spacing:-.02em; line-height:1.15; margin:0}
+.sum{margin:7px 0 0; font-size:15px; color:var(--ink-soft)}
+
+/* ---------- a sound is a row ---------- */
+.sounds{list-style:none; margin:0; padding:0}
+.sound{
+  display:grid;
+  grid-template-columns:auto 1fr auto auto;
+  align-items:center; gap:14px;
+  padding:10px 12px; margin:0 -12px 4px;
+  border-radius:var(--radius-sm);
+  transition:background 160ms linear;
+}
+.sound:hover,.sound.held{background:var(--lift)}
+/* muted, or silenced by another layer's solo: present, not contributing */
+.sound.silent{opacity:.6}
+
+/* The thumbnail is not decoration: it is the YouTube player. Hiding it
+   or sizing it to zero stops playback, so a video row keeps a small one
+   and it doubles as the layer's identity. Synths have no player. */
+.thumb{width:40px; height:40px; border-radius:8px; overflow:hidden; flex-shrink:0;
+  background:#000; border:1px solid var(--line); position:relative}
+.thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%;
+  width:71px; height:40px; transform:translate(-50%,-50%); border:0}
+.thumb.synth{display:flex; align-items:center; justify-content:center;
+  background:var(--lift); color:var(--ink-soft); border-color:var(--line)}
+.thumb.synth svg{width:22px; height:22px}
+
+/* the level: the whole band is the control */
+.band{
+  display:block; width:100%; min-width:0;
+  background:none; border:0; padding:6px 0; margin:0;
+  color:inherit; font:inherit; text-align:left;
+  cursor:ew-resize; touch-action:pan-y; border-radius:6px;
+}
+.band:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
+.cap{display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:7px}
+.name{font-size:16px; font-weight:400; line-height:1.25; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* the level, in words. There is no percentage anywhere in this app. */
+.near{font-size:13px; color:var(--ink-soft); white-space:nowrap}
+.sound.quiet .name{color:var(--ink-soft)}
+
+.wave{height:var(--wave-h); display:flex; align-items:center; overflow:hidden}
+.strokes{display:flex; align-items:center; gap:3px; height:var(--wave-h); transform-origin:center center}
+/* coarse on purpose: at 1px every sound rendered as the same hairline band */
+.strokes i{flex:0 0 2px; background:var(--wave); border-radius:1px}
+.sound.silent .strokes i, .band.off .strokes i{background:var(--wave-off)}
+
+/* ---------- play / pause ---------- */
+.playbtn{flex-shrink:0; width:var(--tap); height:var(--tap); border-radius:50%; padding:0;
+  display:grid; place-items:center; background:transparent;
+  border:1px solid var(--edge); color:var(--ink); cursor:pointer;
+  transition:background .2s var(--ease), border-color .2s var(--ease)}
+.playbtn .ico{width:40%; height:40%; fill:currentColor; display:block}
+.playbtn:hover{border-color:var(--ink-soft); background:var(--lift)}
+.playbtn:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+/* Playing versus paused is the icon's SHAPE and a brighter ring, never
+   dimness: a dimmed control in a dark room reads as disabled. */
+.sound.playing .playbtn{border-color:var(--ink-soft)}
+.sound.gone .playbtn{opacity:.4; cursor:not-allowed}
+
+/* ---------- the row you expanded ---------- */
+.more{width:34px; height:var(--tap); padding:0; border:0; background:none;
+  color:var(--ink-soft); cursor:pointer; display:grid; place-items:center; border-radius:8px}
+.more svg{width:13px; height:13px; fill:currentColor; transition:transform .2s var(--ease)}
+.more:hover{color:var(--ink); background:var(--lift)}
+.more:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
+.more[aria-expanded="true"] svg{transform:rotate(180deg)}
+/* Indented to the name column (thumb 40 + gap 14), so an expanded row
+   reads as belonging to its sound instead of to the page. */
+.extras{grid-column:1/-1; padding:2px 12px 14px 66px; margin:0 -12px}
+.extras[hidden]{display:none}
+.status{font-size:13px; color:var(--ink-soft); margin-bottom:10px}
+.status .live{color:var(--ink)}
+.status .gone{color:var(--ink)}
+.ctl{margin-bottom:12px}
+.ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px}
+.ctl .lab span{font-size:14px; color:var(--ink)}
+.ctl .lab b{color:var(--ink-soft); font-weight:400; font-size:13px}
+.foot-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.foot-row .spacer{flex:1 1 auto; min-width:0}
+
+/* ---------- the transport ---------- */
+.transport{
+  padding-top:34px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.sep{color:var(--edge)}
+.left{font-size:13px; color:var(--ink-soft)}
+
+/* ---------- buttons ---------- */
+button{font:inherit; font-size:14px; cursor:pointer; color:var(--ink);
+  border:1px solid var(--edge); background:transparent;
+  border-radius:999px; padding:0 20px; height:var(--tap);
+  transition:background .2s var(--ease), border-color .2s var(--ease)}
+button:hover{border-color:var(--ink-soft); background:var(--lift)}
+button:disabled{opacity:.42; cursor:not-allowed}
+button:disabled:hover{border-color:var(--edge); background:transparent}
+button:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+/* The primary action is a bordered button in full ink, never a filled
+   bright block: a glowing slab is the worst object on a night screen. */
+button.primary{border-color:var(--ink-soft); font-weight:500}
+button.primary:hover{border-color:var(--ink)}
+.with-ico{display:inline-flex; align-items:center; gap:9px}
+.with-ico .ico{width:13px; height:13px; flex-shrink:0}
+.ico{fill:currentColor}
+/* a quiet action is a word, not a chip */
+.quiet{border:0; background:none; padding:0; height:auto; font-size:14px;
+  color:var(--ink-soft); border-bottom:1px solid transparent; border-radius:0}
+.quiet:hover{color:var(--ink); background:none; border-bottom-color:var(--edge)}
+.quiet:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+.tvbtn{font-size:13px; color:var(--ink-soft); border:1px solid var(--line);
+  padding:0 12px; height:36px; border-radius:8px; white-space:nowrap}
+.tvbtn:hover{color:var(--ink); border-color:var(--ink-soft)}
+.tvbtn.active{color:var(--ink); border-color:var(--ink-soft)}
+.tvbtn.retry{color:var(--ink); border-color:var(--edge)}
+.tvbtn[hidden]{display:none}
+.remove{font-size:13px; color:var(--ink-soft); border:1px solid transparent;
+  padding:0 12px; height:36px; border-radius:8px; white-space:nowrap; background:none}
+.remove:hover{color:var(--ink); border-color:var(--edge); background:var(--lift)}
+.tag-synth{font-size:13px; color:var(--ink-soft); white-space:nowrap;
+  border:1px solid var(--line); border-radius:999px; padding:5px 11px}
+
+/* ---------- empty and notices ---------- */
+.empty{border:0; padding:0; margin-top:7px}
+.empty p{margin:0; font-size:15px; color:var(--ink-soft)}
+.notice{display:flex; align-items:center; gap:13px; flex-wrap:wrap; margin-top:18px;
+  background:var(--raised); border:1px solid var(--line);
+  border-radius:var(--radius-sm); padding:14px 16px; font-size:14px; color:var(--ink-soft)}
+.notice b{color:var(--ink); font-weight:400}
+.notice[hidden]{display:none}
+.notice .spacer{flex:1 1 auto}
+
+/* ---------- sheets ----------
+   Everything that builds a mix. Opened on purpose, closed again, so the
+   player is never buried under its own tooling. */
+.sheet{position:fixed; inset:0; z-index:60; display:flex;
+  align-items:flex-end; justify-content:center; padding:0;
+  background:rgba(8,8,7,.72)}
+.sheet[hidden]{display:none}
+.sheet-card{width:100%; max-width:var(--column); max-height:86vh; overflow-y:auto;
+  background:var(--raised); border:1px solid var(--edge); border-bottom:0;
+  border-radius:var(--radius) var(--radius) 0 0;
+  padding:24px 28px calc(28px + env(safe-area-inset-bottom))}
+.sheet-head{display:flex; align-items:center; gap:14px; margin-bottom:18px}
+.sheet-head h2{font-size:19px; font-weight:400; margin:0; flex:1}
+.sheet-head .x{width:36px; height:36px; padding:0; border-radius:50%;
+  display:grid; place-items:center; border-color:var(--line); color:var(--ink-soft)}
+.sheet-head .x svg{width:11px; height:11px}
+.note{font-size:13.5px; color:var(--ink-soft); margin:18px 0 10px}
+.note:first-of-type{margin-top:0}
+.sheet-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+.sheet-row > span{font-size:14px; color:var(--ink-soft); min-width:92px}
+details.about{margin-top:20px; border-top:1px solid var(--line); padding-top:16px}
+details.about summary{font-size:14px; color:var(--ink-soft); cursor:pointer}
+details.about p{font-size:13.5px; color:var(--ink-soft); line-height:1.65; max-width:62ch}
+body.sheet-on{overflow:hidden}
+
+/* ---------- pickers inside the sheets ---------- */
+.addbar{display:flex; gap:10px; flex-wrap:wrap}
+.addbar input{flex:1; min-width:200px; color:var(--ink); font:inherit; font-size:15px;
+  background:var(--night); border:1px solid var(--line);
+  border-radius:var(--radius-sm); padding:0 14px; height:var(--tap)}
+.addbar input::placeholder{color:var(--ink-soft)}
+.addbar input:focus{outline:none; border-color:var(--ink-soft)}
+.synths{display:flex; gap:8px; flex-wrap:wrap}
+.synth-chip{display:inline-flex; align-items:center; gap:9px; text-align:left;
+  border:1px solid var(--line); border-radius:999px; padding:0 15px; height:var(--tap)}
+.synth-chip .ico{color:var(--ink-soft); display:flex; flex-shrink:0; width:15px; height:15px}
+.synth-chip .n{font-size:13.5px}
+.synth-chip .c{color:var(--ink-soft); font-size:12px; margin-left:2px}
+.presets{display:flex; gap:9px; flex-wrap:wrap}
+.preset{display:flex; flex-direction:column; gap:3px; text-align:left; height:auto;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:13px 16px; min-width:124px; max-width:260px}
+.preset .n{font-size:14px}
+.preset .c{color:var(--ink-soft); font-size:12.5px; line-height:1.45}
+.mixes{display:flex; gap:9px; flex-wrap:wrap; align-items:center}
+.mix{display:flex; align-items:center; gap:2px; border:1px solid var(--line);
+  border-radius:999px; padding:0 6px 0 14px; height:var(--tap)}
+.mix .name{padding:0 4px; font-size:13.5px; cursor:pointer; white-space:nowrap}
+.mix .x{background:none; border:0; color:var(--ink-soft); padding:6px; height:auto;
+  border-radius:50%; display:grid; place-items:center}
+.mix .x svg{width:10px; height:10px}
+#noMixes{font-size:13.5px; color:var(--ink-soft)}
+
+/* ---------- switches and sliders ----------
+   Sliders survive only where a continuous value genuinely is the right
+   control: master, tone, speed and screen dim. A layer's level is not
+   one of them. */
+.toggle{display:inline-flex; align-items:center; gap:9px; font-size:14px;
+  color:var(--ink-soft); cursor:pointer; user-select:none; white-space:nowrap}
+/* Visually hidden, but NOT display:none: that would drop the checkbox out
+   of the tab order and out of the accessibility tree. */
+.toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+  border:0; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+.toggle .sw{width:34px; height:19px; border-radius:999px; background:var(--edge);
+  position:relative; transition:background .2s var(--ease)}
+.toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:15px; height:15px;
+  border-radius:50%; background:var(--ink-soft);
+  transition:transform .2s var(--ease), background .2s var(--ease)}
+.toggle input:checked + .sw{background:var(--wave-off)}
+.toggle input:checked + .sw::after{transform:translateX(15px); background:var(--ink)}
+.toggle input:disabled ~ .sw{opacity:.4}
+.toggle input:disabled ~ #wakeLabel{opacity:.5}
+.toggle input:focus-visible + .sw{outline:2px solid var(--ink-soft); outline-offset:3px}
+.dock-toggle input:checked ~ #wakeLabel{color:var(--ink)}
+
+input[type=range]:disabled{opacity:.4; cursor:not-allowed}
+input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:150px; height:22px;
+  background:transparent; cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:999px; background:var(--edge)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:15px; height:15px;
+  margin-top:-5.5px; border-radius:50%; background:var(--ink); border:0}
+input[type=range]::-moz-range-track{height:4px; border-radius:999px; background:var(--edge)}
+input[type=range]::-moz-range-progress{height:4px; border-radius:999px; background:var(--wave)}
+input[type=range]::-moz-range-thumb{width:15px; height:15px; border:none; border-radius:50%; background:var(--ink)}
+input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
+input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
+
+select{color:var(--ink); font:inherit; font-size:14px; background:var(--night);
+  border:1px solid var(--line); border-radius:8px; padding:0 10px; height:38px}
+
+/* ---------- visualiser ----------
+   NOTE: any backdrop-filter/filter/transform on a row would make it the
+   containing block for a position:fixed descendant, sizing the
+   "fullscreen" video to the row instead of the viewport. Nothing sets
+   one now; keep this neutralised in case one comes back. */
+.sound.is-theatre{backdrop-filter:none; filter:none} /* taste-skill-ignore: the absence of glass, not glass */
+.thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none;
+  border-radius:0; z-index:40; background:#000}
+/* Fill: crop to cover. Costs decode area, so on a portrait phone YouTube
+   serves a much larger stream. */
+.thumb.theatre .yt, .thumb.theatre > iframe{width:max(100vw,177.78vh); height:max(100vh,56.25vw)}
+/* Fit: letterbox. The iframe never exceeds the screen, so the stream is
+   sized to the device. Much lighter, and the default in portrait. */
+.thumb.theatre.fit .yt, .thumb.theatre.fit > iframe{width:min(100vw,177.78vh); height:min(100vh,56.25vw)}
+.shade{position:fixed; inset:0; z-index:41; background:#000; opacity:0; display:none;
+  pointer-events:none; transition:opacity .4s var(--ease)}
+.shade.on{display:block}
+.catch{position:fixed; inset:0; z-index:42; display:none; cursor:pointer}
+.catch.on{display:block}
+.tbar{position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; gap:16px;
+  align-items:center; flex-wrap:wrap;
+  padding:18px 24px calc(16px + env(safe-area-inset-bottom));
+  background:var(--night); border-top:1px solid var(--line);
+  opacity:1; transition:opacity .5s var(--ease)}
+.tbar.on{display:flex}
+.tbar.idle{opacity:0; pointer-events:none}
+.tbar .tname{font-size:15px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tbar .trow{display:flex; align-items:center; gap:10px}
+.tbar .trow span{font-size:13px; color:var(--ink-soft)}
+.tbar .trow input[type=range]{width:104px}
+.tbar .spacer{flex:1}
+body.theatre-on{overflow:hidden}
+body.theatre-on .page{display:none}
+
+/* ---------- toast and dialog ---------- */
+.toast{position:fixed; bottom:34px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
+  background:var(--raised); border:1px solid var(--edge); color:var(--ink);
+  padding:11px 17px; border-radius:10px; font-size:14px;
+  pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:70}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.dlg{position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center;
+  padding:24px; background:rgba(8,8,7,.72)}
+.dlg[hidden]{display:none}
+.dlg-card{width:100%; max-width:400px; background:var(--raised); border:1px solid var(--edge);
+  border-radius:var(--radius); padding:24px}
+.dlg-card h2{font-weight:400; font-size:19px; margin:0 0 9px}
+.dlg-card p{margin:0 0 15px; font-size:14px; color:var(--ink-soft); line-height:1.55}
+.dlg-card p[hidden]{display:none}
+.dlg-card input{width:100%; color:var(--ink); font:inherit; font-size:15px;
+  background:var(--night); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:0 14px; height:var(--tap); margin-bottom:16px}
+.dlg-card input[hidden]{display:none}
+.dlg-card input:focus{outline:none; border-color:var(--ink-soft)}
+.dlg-row{display:flex; gap:10px; justify-content:flex-end}
+body.dialog-on{overflow:hidden}
+
+.sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+  clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+
+@media (max-width:560px){
+  .page{padding:28px 18px calc(28px + env(safe-area-inset-bottom))}
+  .wordmark{margin-bottom:26px}
+  .now{margin-bottom:22px}
+  .now h1{font-size:25px}
+  .sound{gap:11px; padding:9px 10px; margin:0 -10px 4px}
+  .extras{padding:2px 10px 12px 61px; margin:0 -10px}
+  .transport{padding-top:26px; gap:13px}
+  .sheet-card{padding:20px 18px calc(24px + env(safe-area-inset-bottom)); max-height:90vh}
+  .sheet-row > span{min-width:0}
+  input[type=range]{width:130px}
+  .tbar{gap:10px; padding:14px 14px calc(13px + env(safe-area-inset-bottom))}
+  .tbar .tname{max-width:120px; font-size:14px}
+  .tbar .trow input[type=range]{width:66px}
+}
+/* Phones in the visualiser: the bar sits over the video, so it must stay
+   one or two rows, never three. Drop what the video already tells you. */
+@media (max-width:430px){
+  .tbar .tname{display:none}
+  .tbar .trow span{display:none}
+  #tall .ico{width:14px; height:14px}
+  #tallLabel{display:none}
+  #texit{padding:0 13px}
+  #texit .word{display:none}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important; animation:none !important}
+}
+
+  /* lay the overlays out in flow so all three can be seen at once */
+  .sheet{position:static; background:none; display:block; padding:0; margin:0 auto 26px; max-width:760px}
+  .sheet-card{max-height:none; border-bottom:1px solid var(--edge); border-radius:var(--radius)}
+  body{padding:28px 20px}
+</style></head>
+<body>
+<section class="sheet" id="sheetAdd" role="dialog" aria-modal="true" aria-labelledby="sheetAddTitle">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetAddTitle">add a sound</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+    <p class="note">built in, generated on your device. no network, and they mix properly everywhere.</p>
+    <div class="synths" id="synths"></div>
+    <p class="note">anything else, from YouTube.</p>
+    <div class="addbar">
+      <label for="urlInput" class="sr-only">YouTube link or video ID</label>
+      <input id="urlInput" type="text" placeholder="paste a link or video ID" autocomplete="off">
+      <button class="primary" id="btnAdd">add</button>
+    </div>
+  </div>
+</section>
+<section class="sheet" id="sheetMixes" role="dialog" aria-modal="true" aria-labelledby="sheetMixesTitle">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetMixesTitle">mixes</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+    <p class="note">a starter blend replaces what is playing. save yours first if you want to keep it.</p>
+    <div class="presets" id="presets"></div>
+    <p class="note">your own.</p>
+    <div class="mixes" id="mixes">
+      <button id="btnSave">save this mix</button>
+      <span id="noMixes">nothing saved yet.</span>
+    </div>
+  </div>
+</section>
+<section class="sheet" id="sheetMore" role="dialog" aria-modal="true" aria-labelledby="sheetMoreTitle">
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetMoreTitle">more</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+
+    <div class="sheet-row">
+      <span>everything</span>
+      <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
+    </div>
+
+    <div class="sheet-row">
+      <span>fade out</span>
+      <select id="sleepSel" aria-label="Sleep timer">
+        <option value="0">never</option>
+        <option value="15">in about fifteen minutes</option>
+        <option value="30">in about half an hour</option>
+        <option value="45">in about three quarters of an hour</option>
+        <option value="60">in about an hour</option>
+        <option value="90">in about an hour and a half</option>
+        <option value="120">in about two hours</option>
+      </select>
+    </div>
+
+    <div class="sheet-row">
+      <span>screen</span>
+      <label class="toggle dock-toggle" title="Stops the screen sleeping, so audio keeps playing on mobile">
+        <input type="checkbox" id="btnWake"><span class="sw"></span>
+        <span id="wakeLabel">may sleep</span>
+      </label>
+    </div>
+
+    <div class="sheet-row">
+      <span>this mix</span>
+      <button id="btnShare">share</button>
+      <button id="btnExport">export</button>
+      <button id="btnImport">import</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+      <button id="btnClearAll">clear all</button>
+    </div>
+
+    <details class="about">
+      <summary>about the sounds</summary>
+      <p id="hint">
+        <b>built-in sounds</b> are generated in the browser: no download, no network,
+        and they keep playing offline and with the screen off. each has a tone control
+        instead of speed. <b>YouTube layers</b> bring anything else, with speed and a
+        full-screen visualiser, but need a connection, and they stream and decode
+        video even though only the audio is used, so several at once will warm a phone
+        and drain it. video is held at the lowest quality unless you open the
+        visualiser; on battery, prefer the built-in sounds.
+        add this to your phone's home screen and it runs as its own app.
+        audio begins after your first tap. speed steps in quarters, which is the finest
+        YouTube's player allows. mixing several videos works best with the screen on;
+        turn <b>screen staying on</b> on if Android pauses background audio.
+        expand any video row and tap <b>visualise</b> to fill the screen with it. if
+        playback stutters, switch the visualiser to <b>fit</b>: it letterboxes instead
+        of cropping, which is far lighter on the phone.
+        your current blend is remembered between visits.
+      </p>
+    </details>
+  </div>
+</section>
+</body></html>

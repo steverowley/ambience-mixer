@@ -26,7 +26,7 @@ ok("backdrop-filter blur used sparingly (<=3: header, dock, dialog)", bf <= 3, "
    beside a bed any more. */
 ok("nothing animates on its own", !/animation:[^;}]*infinite/.test(html));
 ok("playing is a brighter edge, not a glow",
-   /\.layer\.playing\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
+   /\.sound\.playing \.playbtn\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
 ok("renderMixes has no innerHTML for names", !/el\.innerHTML='<span class="name">'/.test(html));
 ok("loop checkbox focusable", /\.toggle input\{position:absolute; width:1px/.test(html));
 ok("extractId catch-all removed", !/m=input\.match\(\/\(\[a-zA-Z0-9_-\]\{11\}\)\/\)/.test(html));
@@ -547,7 +547,7 @@ ok("the volume control is inert for iOS video layers",
 ok("status does not claim a percentage it cannot set", /IS_IOS && !isSynth\(L\)\) \? "full volume \(iOS\)"/.test(html));
 ok("the iOS notice explains the cause", /Apple does not allow web pages to set the volume/.test(html));
 ok("the iOS notice is dismissible and remembered", /ambience\.iosNote/.test(html));
-ok("the iOS notice is hidden by default", /id="iosNote" class="resume" hidden/.test(html));
+ok("the iOS notice is hidden by default", /id="iosNote" class="notice" hidden/.test(html));
 ok("synth layers keep working volume on iOS", !/IS_IOS[\s\S]{0,80}isSynth\(L\)\)[\s\S]{0,40}disabled/.test(html));
 
 // ---- start position ----

@@ -137,19 +137,19 @@ ok("Pause all keeps its accessible name in sync",
 ok("theatre bar re-syncs when any layer changes state",
    /if\(theatreLayer\) syncTheatreAll\(\)/.test(html));
 console.log("\n[structure]");
-ok("footer stacks in a column",
-   /\.layer-foot\{[^}]*flex-direction:column/.test(html));
+ok("the expanded row spans every column of the row grid",
+   /\.extras\{grid-column:1\/-1/.test(html));
 ok("footer rows can wrap as a last resort",
    /\.foot-row\{[^}]*flex-wrap:wrap/.test(html));
-ok("two foot-rows are emitted per card",
-   (html.match(/'<div class="foot-row">'/g) || []).length === 2);
+ok("one control group is emitted per row",
+   (html.match(/'<div class="foot-row">'/g) || []).length === 1);
 ok("chips never split mid-label",
    /\.tvbtn\{[^}]*white-space:nowrap/.test(html));
 ok("Remove is a chip too, not bare text",
    /\.remove\{[^}]*border-radius:8px/.test(html));
 ok("spacer cannot force overflow (flex-shrink allowed)",
    /\.foot-row \.spacer\{flex:1 1 auto; min-width:0\}/.test(html));
-ok("narrow-screen breakpoint exists", /@media \(max-width:380px\)/.test(html));
+ok("narrow-screen breakpoint exists", /@media \(max-width:560px\)/.test(html));
 
 /* ---- the wake control ---- */
 console.log("\n[wake control]");
