@@ -20,12 +20,19 @@ ok("no backdrop-filter on bare button selector",
    !/\n\s*button\{[^}]*backdrop-filter/.test(html));
 const bf = (html.match(/backdrop-filter:\s*blur/g) || []).length;
 ok("backdrop-filter blur used sparingly (<=3: header, dock, dialog)", bf <= 3, "found " + bf);
-ok("cardbreathe animates opacity", /@keyframes cardbreathe\{0%,100%\{opacity/.test(html));
-ok("glow on ::after", /\.layer\.playing::after\{opacity:1; animation:cardbreathe/.test(html));
+/* The overhaul removed every resting animation: the drifting aurora, the
+   breathing card glow and the pulsing brand orb. Motion is feedback only,
+   which is also why nothing animates a blurred surface for eight hours
+   beside a bed any more. */
+ok("nothing animates on its own", !/animation:[^;}]*infinite/.test(html));
+ok("playing is a brighter edge, not a glow",
+   /\.layer\.playing\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
 ok("renderMixes has no innerHTML for names", !/el\.innerHTML='<span class="name">'/.test(html));
 ok("loop checkbox focusable", /\.toggle input\{position:absolute; width:1px/.test(html));
 ok("extractId catch-all removed", !/m=input\.match\(\/\(\[a-zA-Z0-9_-\]\{11\}\)\/\)/.test(html));
-ok("aurora pauses when hidden", /body\.hidden-tab \.aurora::before/.test(html));
+/* Not "used sparingly": there are none at all. A gradient was the single
+   most reliable tell of the look this replaced. */
+ok("no gradients anywhere", !/(linear|radial|conic)-gradient\(/.test(html));
 /* Random start offsets were deliberately removed: layers must begin at the
    start of their source every time. See the [start position] block. */
 ok("session persistence", /SESSION_KEY="ambience\.session\.v1"/.test(html));
@@ -59,8 +66,8 @@ ok("in-app dialog markup present", /id="dlg"[^>]*role="dialog"/.test(html));
 ok("dialog is aria-modal", /aria-modal="true"/.test(html));
 ok("loadMix replace param removed", /function loadMix\(name,data\)\{/.test(html));
 ok("no stale 3-arg loadMix calls", !/loadMix\([^)]*,true\)/.test(html));
-ok("Fraunces self-hosted", /@font-face\{[\s\S]{0,200}fraunces-subset\.woff2/.test(html));
-ok("Fraunces preloaded", /rel="preload" href="\/fraunces-subset\.woff2"/.test(html));
+ok("one typeface, actually loaded", /family=Figtree:wght@300;400;500/.test(html));
+ok("no second family is loaded", !/family=(Inter|Fraunces)/.test(html));
 ok("Google Fonts no longer serves Fraunces", !/googleapis[^"]*Fraunces/.test(html));
 // Play/pause iconography
 ok("play/pause are SVG, not text glyphs",
@@ -76,7 +83,7 @@ ok("setPlayIcon keeps the accessible name in sync",
 ok("play button centres with grid, not line-height",
    /\.playbtn\{[^}]*display:grid; place-items:center/.test(html));
 ok("play icon scales with the button (relative size)",
-   /\.playbtn \.ico\{width:44%; height:44%/.test(html));
+   /\.playbtn \.ico\{width:40%; height:40%/.test(html));
 ok("play button has a focus ring", /\.playbtn:focus-visible\{outline/.test(html));
 ok("dock buttons pair icon with label", /\.with-ico\{display:inline-flex/.test(html));
 ok("theatre play button is initialised", /setPlayIcon\(tplay,false\)/.test(html));
@@ -491,7 +498,7 @@ ok("the update offer never reloads on its own", /btnUpdate"\)\.addEventListener/
 ok("accepting an update flushes the session first", /btnUpdate"\)\.addEventListener\("click",function\(\)\{\s*flushSession\(\)/.test(html));
 ok("the waiting worker is told to activate", /postMessage\("skipWaiting"\)/.test(html));
 ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
-ok("the cache version was bumped", /ambience-v3/.test(sw));
+ok("the cache version was bumped", /murmur-v4/.test(sw));
 ok("Later dismisses without reloading", /btnUpdateLater[\s\S]{0,140}hidden=true/.test(html));
 
 // ---- contextual controls ----
@@ -535,7 +542,8 @@ ok("iPadOS masquerading as Mac is caught", /Macintosh.*maxTouchPoints>1/.test(ht
 ok("audio is primed on first touch", /\["touchend","pointerdown","keydown"\]/.test(html));
 ok("priming is passive so it never blocks scrolling", /primeAudio,\{passive:true\}/.test(html));
 ok("autoplay is not attempted for iOS video layers", /if\(IS_IOS\)\{ L\.playing=false; renderPlaying\(L\); \}/.test(html));
-ok("the volume slider is disabled for iOS video layers", /IS_IOS && !synth\)\?' disabled/.test(html));
+ok("the volume control is inert for iOS video layers",
+   /IS_IOS && !synth\)\?' aria-disabled="true"/.test(html));
 ok("status does not claim a percentage it cannot set", /IS_IOS && !isSynth\(L\)\) \? "full volume \(iOS\)"/.test(html));
 ok("the iOS notice explains the cause", /Apple does not allow web pages to set the volume/.test(html));
 ok("the iOS notice is dismissible and remembered", /ambience\.iosNote/.test(html));
@@ -592,12 +600,13 @@ ok("the cap is re-asserted when YouTube raises it", /onPlaybackQualityChange:fun
 ok("the visualised layer is allowed real resolution", /theatreLayer===L \? "default" : "tiny"/.test(html));
 ok("quality is set on ready", /applyQuality\(L\);\s*\r?\n\s*\/\* Every layer starts/.test(html));
 ok("leaving the visualiser drops quality again", /if\(was\) applyQuality\(was\)/.test(html));
-ok("the blurred aurora layer is disabled on touch devices",
-   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,260}\.aurora::before\{animation:none; filter:none/.test(html));
-ok("the playing glow stops animating on touch devices",
-   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,400}\.layer\.playing::after\{animation:none/.test(html));
-ok("the grain overlay is dropped on touch devices",
-   /@media \(hover:none\) and \(pointer:coarse\)\{[\s\S]{0,400}\.grain\{display:none\}/.test(html));
+/* These three used to switch off decoration that cost real battery on a
+   phone. There is nothing left to switch off, which is a better fix than
+   a media query that hides it. */
+ok("no backdrop-filter is left to pay for", !/backdrop-filter:\s*blur/.test(html));
+ok("no grain overlay is left to composite", !/class="grain"/.test(html));
+ok("the touch-device escape hatch is no longer needed",
+   !/@media \(hover:none\) and \(pointer:coarse\)/.test(html));
 ok("the battery cost is stated in the UI", /warm a phone/.test(html));
 
 console.log("\n" + pass + " passed, " + fail + " failed\n");

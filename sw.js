@@ -2,8 +2,8 @@
    The whole app is a single HTML file, so a cache-first shell gives full
    offline use of the UI, presets and saved mixes. Audio still needs the
    network — YouTube is not cacheable and must not be intercepted. */
-var CACHE = "ambience-v3";
-var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg", "/fraunces-subset.woff2"];
+var CACHE = "murmur-v4";
+var SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 /* The page asks for the new worker to take over when the reader accepts the
    update prompt. Without this the new build waits until every tab is closed —
