@@ -35,9 +35,39 @@ jobs:
         run: node .dev/audit.js --ci
 
       # Runs the app under an iPhone user agent and asserts the platform
-      # adaptations fire — and that desktop behaviour is untouched.
+      # adaptations fire, and that desktop behaviour is untouched.
       - name: Platform behaviour (iOS, Android, desktop)
         run: node .dev/ios.js
+
+  browser:
+    name: Browser checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 for the global WebSocket, which is what lets these checks
+      # drive Chrome over the DevTools protocol without a single dependency.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Fail loudly rather than skipping. A browser check that quietly does
+      # not run is worse than no browser check, because it reads as green.
+      - name: Chrome is available
+        run: |
+          google-chrome --version || {
+            echo "no Chrome on this runner; the browser checks cannot run"; exit 1; }
+
+      # The source-reading suites all passed while the shipped app was
+      # visibly broken three times over: a clipped waveform, a collapsed row
+      # and a visualiser that hid its own video. These measure laid-out
+      # boxes in a real browser, which is the only thing that catches those.
+      - name: Layout and behaviour in Chrome
+        run: node .dev/browser.js
+
+      # And prove the checks still fail on the bugs they were written for.
+      - name: The browser checks still catch the bugs they were written for
+        run: node .dev/browser_selftest.js
 
   assets:
     name: Static assets

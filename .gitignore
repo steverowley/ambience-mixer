@@ -6,6 +6,7 @@ node_modules/
 *.log
 fraunces-full.woff2
 .dev/preview-cards.html
+.dev/preview-sheets.html
 
 # taste-skill inspector output (screenshots, reports)
 .taste-skill/

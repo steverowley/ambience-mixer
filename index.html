@@ -28,550 +28,625 @@
 <style>
   /* ============================================================
      MURMUR
-     Latin murmur: a humming, a muttering, the roar of water. It is
-     also plain English, and it describes what this app produces:
-     several quiet sounds heard as one.
 
-     The design language, and what it replaced
-     The previous look leaned on five things that are, between them,
-     the house style of generated web apps: an animated conic-gradient
-     aurora, glass cards over it, a navy ground, tracked uppercase
-     micro-labels, and a display serif at heading sizes. All five are
-     gone, and nothing replaces them one-for-one. What replaces them
-     is restraint plus one idea carried properly.
+     Latin murmur: a humming, a muttering, the roar of water. It is also
+     plain English, and it describes what this app produces: several
+     quiet sounds heard as one.
 
-     The rules this sheet keeps, deliberately
-     - ONE typeface doing every job. Figtree, 300/400/500.
-     - Lowercase for everything the app says about itself. Anything
-       the user or YouTube wrote keeps its own case: text-transform on
-       someone else's title is vandalism.
-     - NO accent colour anywhere. Not one hue. State is carried by
-       brightness, by shape, and by words. On a screen used in the
-       dark at 3am this is also simply kinder, and it means an error
-       never shouts in red at someone trying to fall asleep.
-     - Two ink tones only. Three greys cannot be told apart in a dark
-       room, so hierarchy comes from size and weight instead.
-     - No gradients, anywhere, for any reason.
-     - No backdrop-filter. It used to sample an animated 95px blur on
-       the header, the dock and the dialog.
-     - No shadows at rest, and no glow. Elevation is a tone step.
-     - Motion is feedback only. Nothing drifts, breathes or pulses on
-       its own, which also ends the battery cost of animating a
-       blurred surface for eight hours beside a bed.
+     WHAT THIS SCREEN IS, which is the whole redesign
+     A player, not a builder. The previous version was a workbench: a
+     utility toolbar, a rail of seven synth chips, a URL field, a grid of
+     320px panels each carrying a thumbnail, a title, a status line, two
+     sliders and five buttons, then a preset rail, a saved-mix rail, a
+     paragraph of help and a permanent dock. Forty-odd controls, all
+     visible, all of the time, on a screen whose job is to be looked at
+     in the dark while falling asleep.
 
-     Darkness, which is not a style choice
+     Now the screen answers one question: what am I listening to? That
+     is the wordmark, the mix, one row per sound, and one line of
+     transport. Everything that BUILDS a mix is real and unchanged, but
+     it lives behind a sheet you open on purpose and close again.
+
+     A SOUND IS A ROW
+     Name, distance, waveform. Nothing else is permanently visible. Per
+     layer there are still loop, mute, solo, visualise, retry, speed or
+     tone and remove; they live in the row you expanded, because a
+     control you need once a week should not be lit all night.
+
+     THE LANGUAGE
+     One typeface, Figtree, doing every job. Lowercase for everything the
+     app says about itself; anything the user or YouTube wrote keeps its
+     own case, because text-transform on someone else's title is
+     vandalism. NO accent colour anywhere: state is brightness, shape and
+     words, so an error never shouts in red at someone trying to sleep.
+     Two ink tones, because three greys cannot be told apart in the dark.
+     No gradients, no backdrop-filter, no shadows at rest, no glow.
+     Motion is feedback only.
+
+     DARKNESS, which is not a style choice
      The ground is a warm near-black, never #000: pure black smears on
-     OLED while scrolling, leaves no headroom for elevation, and
-     maximises halation. Ink is never #FFFFFF either, which measures
-     brighter than the recommended maximum. Body text stays at 16px
-     and weight 400 or above, because hairline type dissolves in the
-     dark through irradiation.
+     OLED while scrolling, leaves no headroom for elevation and
+     maximises halation. Ink is never #FFFFFF, which measures brighter
+     than the recommended maximum. Body text stays at 16px and weight
+     400 or above, because hairline type dissolves in the dark through
+     irradiation.
      ============================================================ */
-  :root{
-    --night:#131211;        /* the ground: warm near-black, not navy */
-    --raised:#1A1917;       /* a card: one tone step up, never a glass fill */
-    --lift:#211F1C;         /* hover and held states: one step again */
+:root{
+  --night:#131211;        /* the ground: warm near-black, not navy */
+  --raised:#1A1917;       /* a sheet: one tone step up, never glass */
+  --lift:#211F1C;         /* hover and held: one step again */
 
-    --ink:#E8E6E1;
-    --ink-soft:#9D9A94;     /* the only other text tone that exists */
+  --ink:#E8E6E1;
+  --ink-soft:#9D9A94;     /* the only other text tone that exists */
 
-    --wave:#8C8881;         /* a sound that is playing */
-    --wave-off:#45423E;     /* a sound that is not */
+  --wave:#8C8881;         /* a sound that is loaded but silent */
+  /* The one data hue, and the only colour on the screen. It marks the
+     waveform of a sound that is actually playing, which is the single
+     piece of data here. It never goes on a button, a tab or the nav.
+     Warm rather than the dealt lime because this is read in the dark. */
+  --hue:#C9975C;
+  --wave-off:#45423E;     /* a sound that is not */
 
-    --line:#2E2B27;
-    --edge:#332F2B;
+  --line:#2E2B27;
+  --edge:#332F2B;
 
-    --radius:14px; --radius-sm:10px;
-    --ease:cubic-bezier(.22,1,.36,1);
-    --wave-h:34px;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{
-    font-family:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    font-size:16px; font-weight:400; line-height:1.55;
-    color:var(--ink); background:var(--night); min-height:100vh;
-    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
-    padding:0 0 148px; position:relative; overflow-x:hidden;
-  }
+  --radius:14px; --radius-sm:10px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --wave-h:30px;
+  --tap:44px;
+  --column:1120px;      /* the dealt shell: a centred 1088-1208px column */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; font-weight:400; line-height:1.55;
+  color:var(--ink); background:var(--night); min-height:100vh;
+  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
 
-  /* ---------- Header ----------
-     Opaque, because it overlaps scrolling content and a blur there was
-     one of three live backdrop samples running all night. */
-  header{position:sticky; top:0; z-index:20;
-    background:var(--night); border-bottom:1px solid var(--line);
-    padding:18px 28px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
-  .brand{display:flex; align-items:baseline; gap:10px}
-  .brand h1{font-size:19px; font-weight:500; letter-spacing:-.015em; margin:0;}
-  .brand .tag{color:var(--ink-soft); font-size:13px; align-self:baseline}
-  .spacer{flex:1}
+/* ---------- the page ---------- */
+.page{
+  max-width:var(--column); margin:0 auto;
+  padding:40px 32px calc(40px + env(safe-area-inset-bottom));
+  /* Content height, not viewport height. Forcing 100dvh and pushing the
+     transport down with margin-top:auto opened a 556px hole between the
+     sounds and the controls whenever the mix was short, which reads as a
+     page that failed to load rather than as calm space. */
+  display:flex; flex-direction:column;
+}
+.wordmark{font-size:17px; font-weight:500; letter-spacing:-.01em; color:var(--ink-soft);
+  margin:0 0 38px; display:flex; align-items:center; gap:9px}
+/* A murmur, drawn: three strokes falling away. The chapter asks that the
+   product be nameable from a screenshot, and forbids a square with a
+   letter in it. */
+.mark{flex:0 0 auto; display:block}
+.mark rect{fill:var(--hue)}
 
-  /* ---------- Buttons ---------- */
-  button{font:inherit; font-size:14px; cursor:pointer; color:var(--ink);
-    border:1px solid var(--edge); background:transparent;
-    border-radius:var(--radius-sm); padding:10px 17px;
-    transition:background .2s var(--ease), border-color .2s var(--ease);}
-  button:hover{border-color:var(--ink-soft); background:var(--lift)}
-  /* A disabled control should read as "not yet", not as broken: inert
-     but still legible, so the row does not appear to lose items. */
-  button:disabled{opacity:.42; cursor:not-allowed}
-  button:disabled:hover{border-color:var(--edge); background:transparent}
-  button:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
-  .dock[hidden]{display:none}
-  /* The primary action is a bordered button in full ink, never a filled
-     bright block. A glowing slab is the worst possible object on a
-     screen someone is trying to fall asleep in front of. */
-  button.primary{border-color:var(--ink-soft); font-weight:500}
-  button.primary:hover{background:var(--lift); border-color:var(--ink)}
-  .pill{border-radius:999px; padding:9px 17px; font-size:13.5px}
-  .ghost{border-color:var(--line); color:var(--ink-soft)}
-  .ghost:hover{color:var(--ink)}
-  .with-ico{display:inline-flex; align-items:center; gap:8px}
-  .with-ico .ico{width:13px; height:13px; flex-shrink:0}
-  /* A close control is an icon, not a typed glyph. The ✕ character renders
-     differently on every platform, is read aloud as "multiplication" by some
-     screen readers, and is flagged as emoji-as-UI by the design lint. */
-  .ico{fill:currentColor}
-  #texit .ico{width:13px; height:13px; display:block}
-  .mix .x .ico{width:11px; height:11px; display:block}
+/* what is playing */
+.now{margin:0 0 30px}
+.now h1{font-size:30px; font-weight:300; letter-spacing:-.02em; line-height:1.15; margin:0}
+.sum{margin:7px 0 0; font-size:15px; color:var(--ink-soft)}
 
-  .wrap{max-width:1060px; margin:0 auto; padding:34px 28px 0}
+/* The first run puts the starter mixes where the rows will be, rather
+   than behind a sheet. The chapter: keep the frame, and put the first
+   action where the data will appear. */
+.starters{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:18px 0 0}
+/* The sheet rail lays these out with flex, where a button sizes to its
+   content. In a grid cell it has to be told to fill, or the row's arithmetic
+   does not close and the gutters read as 98px of nothing. */
+.starters .preset{width:100%}
+@media (max-width:820px){ .starters{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:520px){ .starters{grid-template-columns:1fr} }
 
-  /* ---------- Add bar ---------- */
-  .addbar{display:flex; gap:12px; margin:4px 0 10px; flex-wrap:wrap}
-  .addbar input{flex:1; min-width:220px; color:var(--ink); font:inherit; font-size:15px;
-    background:var(--raised); border:1px solid var(--line);
-    border-radius:var(--radius-sm); padding:14px 16px; transition:border-color .2s var(--ease);}
-  .addbar input::placeholder{color:var(--ink-soft)}
-  .addbar input:focus{outline:none; border-color:var(--ink-soft)}
+/* ---------- a sound is a row ---------- */
+/* ---------- a sound is a row ---------- */
+.sounds{list-style:none; margin:0; padding:0}
+.sound{
+  display:grid;
+  grid-template-columns:auto 1fr auto auto;
+  align-items:center; gap:14px;
+  padding:10px 12px; margin:0 -12px 4px;
+  border-radius:var(--radius-sm);
+  transition:background 160ms linear;
+}
+.sound:hover,.sound.held{background:var(--lift)}
+/* muted, or silenced by another layer's solo: present, not contributing */
+.sound.silent{opacity:.6}
 
-  /* ---------- Section labels ----------
-     Lowercase at reading size. These were 11px uppercase tracked at
-     600 weight, which is the single most reliable tell of a generated
-     interface and is unreadable in the dark besides. */
-  .label{font-size:14px; color:var(--ink-soft); font-weight:400; margin:38px 2px 14px;}
-  .label-note{color:var(--ink-soft)}
+/* The thumbnail is not decoration: it is the YouTube player. Hiding it
+   or sizing it to zero stops playback, so a video row keeps a small one
+   and it doubles as the layer's identity. Synths have no player. */
+.thumb{width:40px; height:40px; border-radius:8px; overflow:hidden; flex-shrink:0;
+  background:#000; border:1px solid var(--line); position:relative}
+.thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%;
+  width:71px; height:40px; transform:translate(-50%,-50%); border:0}
+.thumb.synth{display:flex; align-items:center; justify-content:center;
+  background:var(--lift); color:var(--ink-soft); border-color:var(--line)}
+.thumb.synth svg{width:22px; height:22px}
 
-  /* ---------- Built-in sound picker ---------- */
-  .synths{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:6px}
-  .synth-chip{display:inline-flex; align-items:center; gap:9px; text-align:left;
-    background:transparent; border:1px solid var(--line); border-radius:999px;
-    padding:9px 15px 9px 12px}
-  .synth-chip:hover{border-color:var(--ink-soft); background:var(--lift)}
-  .synth-chip .ico{color:var(--ink-soft); display:flex; flex-shrink:0}
-  .synth-chip .n{font-weight:400; font-size:13.5px}
-  .synth-chip .c{color:var(--ink-soft); font-size:12px; margin-left:2px}
+/* The level: the whole band is the control.
+   A div, not a button. A button with a fixed height centres and clips its
+   content, and the generic button rule sets height:44px, so the waveform
+   under the name was clipped out of existence. role="slider" plus a
+   tabindex gives the same keyboard access with none of that layout. */
+.band{
+  display:block; width:100%; min-width:0;
+  padding:6px 0; border-radius:6px;
+  cursor:ew-resize; touch-action:pan-y;
+}
+.band:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
+.cap{display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:7px}
+.name{font-size:16px; font-weight:400; line-height:1.25; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+/* the level, in words. There is no percentage anywhere in this app. */
+.near{font-size:13px; color:var(--ink-soft); white-space:nowrap}
+.sound.quiet .name{color:var(--ink-soft)}
 
-  /* ---------- Presets ---------- */
-  .presets{display:flex; gap:10px; flex-wrap:wrap}
-  .preset{display:flex; flex-direction:column; gap:3px; text-align:left;
-    background:transparent; border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:14px 17px; min-width:124px; max-width:264px;}
-  .preset:hover{border-color:var(--ink-soft); background:var(--lift)}
-  .preset .n{font-weight:400; font-size:14px}
-  .preset .c{color:var(--ink-soft); font-size:12.5px; line-height:1.45}
+.wave{height:var(--wave-h); display:flex; align-items:center; overflow:hidden}
+.strokes{display:flex; align-items:center; gap:3px; height:var(--wave-h); transform-origin:center center}
+/* coarse on purpose: at 1px every sound rendered as the same hairline band */
+.strokes i{flex:0 0 2px; background:var(--wave); border-radius:1px}
+/* The one data hue, on one row: whichever sound is loudest right now. A
+   hue on every playing row marked nothing, because at night they are all
+   playing. */
+.sound.dominant .strokes i{background:var(--hue)}
+.sound.silent .strokes i, .band.off .strokes i{background:var(--wave-off)}
 
-  /* ---------- Layer grid ---------- */
-  /* align-items:start, so a card with a one-line title keeps its own height
-     instead of stretching to its tallest neighbour and holding a blank band
-     under its footer. A ragged bottom edge is honest; an empty panel reads
-     as something that failed to load. */
-  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr));
-    gap:16px; align-items:start}
-  .layer{position:relative; background:var(--raised);
-    border:1px solid var(--line); border-radius:var(--radius); padding:20px;
-    transition:border-color .25s var(--ease);}
-  /* Playing is a brighter edge, not a glow. The old card animated a
-     44px spread box-shadow on every playing card, forever. */
-  .layer.playing{border-color:var(--edge)}
-  /* Unavailable: a dashed edge and plain words, never a colour. */
-  .layer.gone{border-style:dashed; border-color:var(--edge)}
-  .layer-head{display:flex; gap:14px; align-items:center}
-  .thumb{width:60px; height:60px; border-radius:10px; overflow:hidden; flex-shrink:0; background:#000;
-    border:1px solid var(--line); position:relative;}
-  .thumb .yt, .thumb > iframe{position:absolute; top:50%; left:50%; width:107px; height:60px; transform:translate(-50%,-50%); border:0;}
-  /* Synth layers have no video, so the tile carries a mark instead of a
-     black box. A flat fill, not a gradient. */
-  .thumb.synth{display:flex; align-items:center; justify-content:center;
-    background:var(--lift); color:var(--ink-soft)}
-  .tag-synth{font-size:12px; font-weight:400; color:var(--ink-soft); white-space:nowrap;
-    border:1px solid var(--line); border-radius:999px; padding:4px 10px;}
-  .meta{flex:1; min-width:0}
-  /* A YouTube title keeps its own capitalisation. */
-  .title{font-weight:400; font-size:15px; line-height:1.3; margin:0 0 3px;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
-  .status{font-size:13px; color:var(--ink-soft)}
-  .status .live{color:var(--ink)}
-  .status .gone{color:var(--ink)}
+/* Master level, on the player rather than behind a sheet. It is the
+   control someone reaches for half asleep, so it is not configuration. */
+.master{display:flex; align-items:center; gap:16px; margin:0 0 24px}
+.master label{font-size:14px; color:var(--ink-soft); min-width:74px}
+.master input[type=range]{flex:1 1 auto; width:auto; max-width:320px}
 
-  /* ---------- Play / pause button ---------- */
-  .playbtn{flex-shrink:0; width:44px; height:44px; border-radius:50%; padding:0;
-    display:grid; place-items:center; background:transparent;
-    border:1px solid var(--edge); color:var(--ink);
-    transition:background .2s var(--ease), border-color .2s var(--ease);}
-  .playbtn .ico{width:40%; height:40%; fill:currentColor; display:block}
-  .playbtn:hover{border-color:var(--ink-soft); background:var(--lift)}
-  .playbtn:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
-  /* Playing vs paused is carried by the ICON's shape (two bars against a
-     triangle) and a brighter ring, never by dimness: a dimmed control in
-     a dark room reads as disabled, not as paused. */
-  .layer.playing .playbtn{border-color:var(--ink-soft)}
-  .layer.gone .playbtn{opacity:.4; cursor:not-allowed}
+/* ---------- play / pause ---------- */
+.playbtn{flex-shrink:0; width:var(--tap); height:var(--tap); border-radius:50%; padding:0;
+  display:grid; place-items:center; background:transparent;
+  border:1px solid var(--edge); color:var(--ink); cursor:pointer;
+  transition:background .2s var(--ease), border-color .2s var(--ease)}
+.playbtn .ico{width:40%; height:40%; fill:currentColor; display:block}
+.playbtn:hover{border-color:var(--ink-soft); background:var(--lift)}
+.playbtn:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+/* Playing versus paused is the icon's SHAPE and a brighter ring, never
+   dimness: a dimmed control in a dark room reads as disabled. */
+.sound.playing .playbtn{border-color:var(--ink-soft)}
+.sound.gone .playbtn{opacity:.4; cursor:not-allowed}
 
-  /* ---------- The level, as a waveform ----------
-     Every sound draws its own shape, generated once from its name so it
-     is stable between sessions: rain never looks like wind. The level is
-     its amplitude, applied as a single scaleY on the container, so a
-     drag writes one style per row per frame instead of one per stroke.
-     Turning a sound down flattens it towards a line rather than dimming
-     a bar, and a trace always remains so silence is still legible. */
-  .ctl{margin-top:16px}
-  .ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px}
-  .ctl .lab span{font-size:14px; color:var(--ink); font-weight:400}
-  /* The level is said in words. There is no percentage on this screen:
-     loudness in a soundscape genuinely is perceived distance, and a
-     number ticking up and down is the last thing anyone needs at
-     midnight. */
-  .ctl .lab b{color:var(--ink-soft); font-weight:400; font-size:13px}
-  .wave{height:var(--wave-h); display:flex; align-items:center; overflow:hidden;
-    cursor:ew-resize; touch-action:pan-y; border-radius:4px}
-  .wave:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
-  .strokes{display:flex; align-items:center; gap:3px; height:var(--wave-h);
-    transform-origin:center center;}
-  /* Coarse on purpose: at 1px every sound rendered as the same dense
-     hairline band and the amplitude was illegible. */
-  .strokes i{flex:0 0 2px; background:var(--wave); border-radius:1px}
-  .layer.silent .strokes i,
-  .wave.off .strokes i{background:var(--wave-off)}
+/* ---------- the row you expanded ---------- */
+.more{width:34px; height:var(--tap); padding:0; border:0; background:none;
+  color:var(--ink-soft); cursor:pointer; display:grid; place-items:center; border-radius:8px}
+.more svg{width:13px; height:13px; fill:currentColor; transition:transform .2s var(--ease)}
+.more:hover{color:var(--ink); background:var(--lift)}
+.more:focus-visible{outline:2px solid var(--ink-soft); outline-offset:2px}
+.more[aria-expanded="true"] svg{transform:rotate(180deg)}
+/* Indented to the name column (thumb 40 + gap 14), so an expanded row
+   reads as belonging to its sound instead of to the page. */
+.extras{grid-column:1/-1; padding:2px 12px 14px 66px; margin:0 -12px}
+.extras[hidden]{display:none}
+.status{font-size:13px; color:var(--ink-soft); margin-bottom:10px}
+.status .live{color:var(--ink)}
+.status .gone{color:var(--ink)}
+.ctl{margin-bottom:12px}
+.ctl .lab{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:7px}
+.ctl .lab span{font-size:14px; color:var(--ink)}
+.ctl .lab b{color:var(--ink-soft); font-weight:400; font-size:13px}
+.foot-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.foot-row .spacer{flex:1 1 auto; min-width:0}
 
-  /* ---------- Sliders ----------
-     Still used for master volume, tone, speed and screen dim, where a
-     continuous value genuinely is the right control. Monochrome. */
-  input[type=range]:disabled{opacity:.4; cursor:not-allowed}
-  input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:100%; height:22px;
-    background:transparent; cursor:pointer;}
-  input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:999px;
-    background:var(--edge);}
-  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:15px; height:15px;
-    margin-top:-5.5px; border-radius:50%; background:var(--ink); border:0;}
-  input[type=range]::-moz-range-track{height:4px; border-radius:999px; background:var(--edge)}
-  input[type=range]::-moz-range-progress{height:4px; border-radius:999px; background:var(--wave)}
-  input[type=range]::-moz-range-thumb{width:15px; height:15px; border:none; border-radius:50%; background:var(--ink)}
-  input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
-  input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
+/* ---------- the transport ---------- */
+.transport{
+  padding-top:34px;
+  display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+}
+.sep{color:var(--edge)}
+.left{font-size:13px; color:var(--ink-soft)}
 
-  /* ---------- Layer footer ----------
-     Two explicit rows, not one wrapping line. At the 320px minimum card
-     width a single row of Loop + Mute + Solo + Visualise + Remove
-     overflows the card and spills over its neighbour, so the grouping is
-     structural: row 1 is what the layer sounds like, row 2 is what to do
-     with the card. */
-  .layer-foot{margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
-    display:flex; flex-direction:column; gap:10px}
-  .foot-row{display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap}
-  .foot-row .spacer{flex:1 1 auto; min-width:0}
-  .toggle{display:inline-flex; align-items:center; gap:8px; font-size:13px;
-    color:var(--ink-soft); font-weight:400; cursor:pointer; user-select:none;
-    white-space:nowrap}
-  /* Visually hidden, but NOT display:none: that would drop the checkbox
-     out of the tab order and out of the accessibility tree, making Loop
-     mouse-only. */
-  .toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
-    border:0; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
-  .toggle .sw{width:34px; height:19px; border-radius:999px; background:var(--edge); position:relative;
-    transition:background .2s var(--ease)}
-  .toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:15px; height:15px;
-    border-radius:50%; background:var(--ink-soft); transition:transform .2s var(--ease), background .2s var(--ease)}
-  .toggle input:checked + .sw{background:var(--wave-off)}
-  .toggle input:checked + .sw::after{transform:translateX(15px); background:var(--ink)}
-  .toggle input:disabled ~ .sw{opacity:.4}
-  .toggle input:disabled ~ #wakeLabel{opacity:.5}
-  .toggle input:focus-visible + .sw{outline:2px solid var(--ink-soft); outline-offset:3px}
-  .remove{font-size:13px; font-weight:400;
-    color:var(--ink-soft); background:transparent; border:1px solid transparent; padding:7px 11px;
-    border-radius:8px; white-space:nowrap}
-  .remove:hover{color:var(--ink); border-color:var(--edge); background:var(--lift)}
-  /* Chips, not bare text: with five controls in the footer, borderless
-     labels read as prose rather than as things you can press. */
-  .tvbtn{font-size:13px; font-weight:400;
-    color:var(--ink-soft); background:transparent; border:1px solid var(--line);
-    padding:7px 11px; border-radius:8px; white-space:nowrap}
-  .tvbtn:hover{color:var(--ink); border-color:var(--ink-soft); background:var(--lift)}
-  .tvbtn.active{color:var(--ink); border-color:var(--ink-soft)}
-  /* A retry is not an alarm. Same chip, plainer words. */
-  .tvbtn.retry{color:var(--ink); border-color:var(--edge)}
-  .tvbtn.retry:hover{background:var(--lift)}
-  .tvbtn[hidden]{display:none}
-  /* Muted or silenced by solo: still there, clearly not contributing. */
-  .layer.silent{opacity:.6}
-  .dock-toggle{color:var(--ink-soft)}
-  .dock-toggle #wakeLabel{min-width:128px; display:inline-block}
-  .dock-toggle input:checked ~ #wakeLabel{color:var(--ink)}
-  #btnWake.active{border-color:var(--ink-soft); color:var(--ink)}
+/* ---------- buttons ---------- */
+button{font:inherit; font-size:14px; cursor:pointer; color:var(--ink);
+  border:1px solid var(--edge); background:transparent;
+  border-radius:999px; padding:0 20px; height:var(--tap);
+  transition:background .2s var(--ease), border-color .2s var(--ease)}
+button:hover{border-color:var(--ink-soft); background:var(--lift)}
+button:disabled{opacity:.42; cursor:not-allowed}
+button:disabled:hover{border-color:var(--edge); background:transparent}
+button:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+/* The primary action is a bordered button in full ink, never a filled
+   bright block: a glowing slab is the worst object on a night screen. */
+button.primary{border-color:var(--ink-soft); font-weight:500}
+button.primary:hover{border-color:var(--ink)}
+.with-ico{display:inline-flex; align-items:center; gap:9px}
+.with-ico .ico{width:13px; height:13px; flex-shrink:0}
+.ico{fill:currentColor}
+/* a quiet action is a word, not a chip */
+.quiet{border:0; background:none; padding:0; height:auto; font-size:14px;
+  color:var(--ink-soft); border-bottom:1px solid transparent; border-radius:0}
+.quiet:hover{color:var(--ink); background:none; border-bottom-color:var(--edge)}
+.quiet:focus-visible{outline:2px solid var(--ink-soft); outline-offset:3px}
+.tvbtn{font-size:13px; color:var(--ink-soft); border:1px solid var(--line);
+  padding:0 12px; height:36px; border-radius:8px; white-space:nowrap}
+.tvbtn:hover{color:var(--ink); border-color:var(--ink-soft)}
+.tvbtn.active{color:var(--ink); border-color:var(--ink-soft)}
+.tvbtn.retry{color:var(--ink); border-color:var(--edge)}
+.tvbtn[hidden]{display:none}
+.remove{font-size:13px; color:var(--ink-soft); border:1px solid transparent;
+  padding:0 12px; height:36px; border-radius:8px; white-space:nowrap; background:none}
+.remove:hover{color:var(--ink); border-color:var(--edge); background:var(--lift)}
+.tag-synth{font-size:13px; color:var(--ink-soft); white-space:nowrap;
+  border:1px solid var(--line); border-radius:999px; padding:5px 11px}
 
-  /* ---------- Theatre mode ----------
-     NOTE: any backdrop-filter/filter/transform on .layer would make it
-     the containing block for a position:fixed descendant, sizing the
-     "fullscreen" video to the card instead of the viewport. Nothing sets
-     one now, but keep these neutralised in case one comes back. */
-  .layer.is-theatre{backdrop-filter:none; /* taste-skill-ignore: the absence of glass, not glass */ filter:none; border-color:var(--ink-soft)}
-  .thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none; border-radius:0; z-index:40; background:#000}
-  /* Fill: crop to cover the viewport. Costs decode area: on a portrait
-     phone the iframe ends up ~4x the screen width, so YouTube serves a
-     much larger stream. */
-  .thumb.theatre .yt, .thumb.theatre > iframe{width:max(100vw,177.78vh); height:max(100vh,56.25vw)}
-  /* Fit: letterbox. The iframe never exceeds the screen, so YouTube
-     serves a stream sized to the device. Much lighter, and the default
-     in portrait. */
-  .thumb.theatre.fit .yt, .thumb.theatre.fit > iframe{width:min(100vw,177.78vh); height:min(100vh,56.25vw)}
-  .shade{position:fixed; inset:0; z-index:41; background:#000; opacity:0; display:none; pointer-events:none;
-    transition:opacity .4s var(--ease)}
-  .shade.on{display:block}
-  .catch{position:fixed; inset:0; z-index:42; display:none; cursor:pointer}
-  .catch.on{display:block}
-  /* Opaque rather than a fade to transparent: a gradient here was doing
-     nothing the eye could name over a dark video. */
-  .tbar{position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; gap:16px; align-items:center; flex-wrap:wrap;
-    padding:20px 28px calc(18px + env(safe-area-inset-bottom));
-    background:var(--night); border-top:1px solid var(--line);
-    opacity:1; transition:opacity .5s var(--ease)}
-  .tbar.on{display:flex}
-  .tbar.idle{opacity:0; pointer-events:none}
-  .tbar .tname{font-size:15px; max-width:220px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .tbar .trow{display:flex; align-items:center; gap:10px}
-  .tbar .trow span{font-size:13px; color:var(--ink-soft); font-weight:400}
-  .tbar .trow input[type=range]{width:104px}
-  body.theatre-on{overflow:hidden}
+/* ---------- empty and notices ---------- */
+.empty{border:0; padding:0; margin-top:7px}
+.empty p{margin:0; font-size:15px; color:var(--ink-soft)}
+.notice{display:flex; align-items:center; gap:13px; flex-wrap:wrap; margin-top:18px;
+  background:var(--raised); border:1px solid var(--line);
+  border-radius:var(--radius-sm); padding:14px 16px; font-size:14px; color:var(--ink-soft)}
+.notice b{color:var(--ink); font-weight:400}
+.notice[hidden]{display:none}
+.notice .spacer{flex:1 1 auto}
 
-  /* ---------- Theatre performance ----------
-     Everything below is invisible behind the opaque video, but the
-     compositor still pays for it every frame. */
-  body.theatre-on header,
-  body.theatre-on .dock{display:none}
+/* ---------- sheets ----------
+   Everything that builds a mix. Opened on purpose, closed again, so the
+   player is never buried under its own tooling. */
+.sheet{position:fixed; inset:0; z-index:60; display:flex;
+  align-items:flex-end; justify-content:center; padding:0;
+  background:rgba(8,8,7,.72)}
+.sheet[hidden]{display:none}
+.sheet-card{width:100%; max-width:var(--column); max-height:86vh; overflow-y:auto;
+  background:var(--raised); border:1px solid var(--edge); border-bottom:0;
+  border-radius:var(--radius) var(--radius) 0 0;
+  padding:24px 28px calc(28px + env(safe-area-inset-bottom))}
+.sheet-head{display:flex; align-items:center; gap:14px; margin-bottom:18px}
+.sheet-head h2{font-size:19px; font-weight:400; margin:0; flex:1}
+.sheet-head .x{width:36px; height:36px; padding:0; border-radius:50%;
+  display:grid; place-items:center; border-color:var(--line); color:var(--ink-soft)}
+.sheet-head .x svg{width:11px; height:11px}
+.note{font-size:13.5px; color:var(--ink-soft); margin:18px 0 10px}
+.note:first-of-type{margin-top:0}
+.sheet-row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px}
+.sheet-row > span{font-size:14px; color:var(--ink-soft); min-width:92px}
+details.about{margin-top:20px; border-top:1px solid var(--line); padding-top:16px}
+details.about summary{font-size:14px; color:var(--ink-soft); cursor:pointer}
+details.about p{font-size:13.5px; color:var(--ink-soft); line-height:1.65; max-width:62ch}
+body.sheet-on{overflow:hidden}
 
-  /* ---------- Resume bar ---------- */
-  .resume{display:flex; align-items:center; gap:13px; flex-wrap:wrap; margin-top:20px;
-    background:var(--raised); border:1px solid var(--line);
-    border-radius:var(--radius-sm); padding:14px 17px; font-size:14px; color:var(--ink-soft)}
-  .resume b{color:var(--ink); font-weight:400}
-  .resume[hidden]{display:none}
+/* ---------- pickers inside the sheets ---------- */
+.addbar{display:flex; gap:10px; flex-wrap:wrap}
+.addbar input{flex:1; min-width:200px; color:var(--ink); font:inherit; font-size:15px;
+  background:var(--night); border:1px solid var(--line);
+  border-radius:var(--radius-sm); padding:0 14px; height:var(--tap)}
+.addbar input::placeholder{color:var(--ink-soft)}
+.addbar input:focus{outline:none; border-color:var(--ink-soft)}
+.synths{display:flex; gap:8px; flex-wrap:wrap}
+.synth-chip{display:inline-flex; align-items:center; gap:9px; text-align:left;
+  border:1px solid var(--line); border-radius:999px; padding:0 15px; height:var(--tap)}
+.synth-chip .ico{color:var(--ink-soft); display:flex; flex-shrink:0; width:15px; height:15px}
+.synth-chip .n{font-size:13.5px}
+.synth-chip .c{color:var(--ink-soft); font-size:12px; margin-left:2px}
+.presets{display:flex; gap:9px; flex-wrap:wrap}
+.preset{display:flex; flex-direction:column; gap:3px; text-align:left; height:auto;
+  border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:13px 16px; min-width:124px; max-width:260px}
+.preset .n{font-size:14px}
+.preset .c{color:var(--ink-soft); font-size:12.5px; line-height:1.45}
+.mixes{display:flex; gap:9px; flex-wrap:wrap; align-items:center}
+.mix{display:flex; align-items:center; gap:2px; border:1px solid var(--line);
+  border-radius:999px; padding:0 6px 0 14px; height:var(--tap)}
+.mix .name{padding:0 4px; font-size:13.5px; cursor:pointer; white-space:nowrap}
+.mix .x{background:none; border:0; color:var(--ink-soft); padding:6px; height:auto;
+  border-radius:50%; display:grid; place-items:center}
+.mix .x svg{width:10px; height:10px}
+#noMixes{font-size:13.5px; color:var(--ink-soft)}
 
-  /* ---------- Empty state ---------- */
-  .empty{text-align:left; color:var(--ink-soft); padding:30px 26px;
-    border:1px dashed var(--edge); border-radius:var(--radius); background:transparent}
-  .empty h3{font-weight:400; font-size:19px; color:var(--ink); margin:0 0 6px}
-  .empty p{margin:0; font-size:14.5px}
+/* ---------- switches and sliders ----------
+   Sliders survive only where a continuous value genuinely is the right
+   control: master, tone, speed and screen dim. A layer's level is not
+   one of them. */
+.toggle{display:inline-flex; align-items:center; gap:9px; font-size:14px;
+  color:var(--ink-soft); cursor:pointer; user-select:none; white-space:nowrap}
+/* Visually hidden, but NOT display:none: that would drop the checkbox out
+   of the tab order and out of the accessibility tree. */
+.toggle input{position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+  border:0; clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+.toggle .sw{width:34px; height:19px; border-radius:999px; background:var(--edge);
+  position:relative; transition:background .2s var(--ease)}
+.toggle .sw::after{content:""; position:absolute; top:2px; left:2px; width:15px; height:15px;
+  border-radius:50%; background:var(--ink-soft);
+  transition:transform .2s var(--ease), background .2s var(--ease)}
+.toggle input:checked + .sw{background:var(--wave-off)}
+.toggle input:checked + .sw::after{transform:translateX(15px); background:var(--ink)}
+.toggle input:disabled ~ .sw{opacity:.4}
+.toggle input:disabled ~ #wakeLabel{opacity:.5}
+.toggle input:focus-visible + .sw{outline:2px solid var(--ink-soft); outline-offset:3px}
+.dock-toggle input:checked ~ #wakeLabel{color:var(--ink)}
 
-  /* ---------- Saved mixes ---------- */
-  .mixes{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-  .mix{display:flex; align-items:center; gap:2px; background:transparent; border:1px solid var(--line);
-    border-radius:999px; padding:0 6px 0 14px}
-  .mix .name{padding:9px 4px; font-size:13.5px; font-weight:400; cursor:pointer}
-  .mix .name:hover{color:var(--ink)}
-  .mix .x{background:transparent; border:none; color:var(--ink-soft); padding:6px; font-size:13px; border-radius:50%}
-  .mix .x:hover{color:var(--ink)}
+input[type=range]:disabled{opacity:.4; cursor:not-allowed}
+input[type=range]{--val:60%; -webkit-appearance:none; appearance:none; width:150px; height:22px;
+  background:transparent; cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:4px; border-radius:999px; background:var(--edge)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:15px; height:15px;
+  margin-top:-5.5px; border-radius:50%; background:var(--ink); border:0}
+input[type=range]::-moz-range-track{height:4px; border-radius:999px; background:var(--edge)}
+input[type=range]::-moz-range-progress{height:4px; border-radius:999px; background:var(--wave)}
+input[type=range]::-moz-range-thumb{width:15px; height:15px; border:none; border-radius:50%; background:var(--ink)}
+input[type=range]:focus-visible::-webkit-slider-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
+input[type=range]:focus-visible::-moz-range-thumb{outline:2px solid var(--ink-soft); outline-offset:2px}
 
-  /* ---------- Dock ---------- */
-  .dock{position:fixed; left:0; right:0; bottom:0; z-index:30;
-    background:var(--night); border-top:1px solid var(--line);
-    padding:14px 28px calc(14px + env(safe-area-inset-bottom)); display:flex; gap:16px; align-items:center; flex-wrap:wrap;}
-  .dock .mrow{display:flex; align-items:center; gap:10px}
-  .dock .mrow span{font-size:13px; color:var(--ink-soft); font-weight:400}
-  .dock .mvol{width:120px}
-  .timer{display:flex; align-items:center; gap:9px; font-size:13px; color:var(--ink-soft)}
-  .timer select{color:var(--ink); font:inherit; font-size:13.5px; background:var(--raised);
-    border:1px solid var(--line); border-radius:8px; padding:8px 10px}
-  /* No tabular digits, because there is no clock here to watch: the
-     remaining time is spoken approximately. Clock-watching is a
-     behaviour sleep therapy actively targets. */
-  .timer .left{color:var(--ink-soft); min-width:38px}
+select{color:var(--ink); font:inherit; font-size:14px; background:var(--night);
+  border:1px solid var(--line); border-radius:8px; padding:0 10px; height:38px}
 
-  .hint{font-size:13px; color:var(--ink-soft); margin:24px 2px 0; line-height:1.6; max-width:680px}
-  .sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
-    clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
+/* ---------- visualiser ----------
+   NOTE: any backdrop-filter/filter/transform on a row would make it the
+   containing block for a position:fixed descendant, sizing the
+   "fullscreen" video to the row instead of the viewport. Nothing sets
+   one now; keep this neutralised in case one comes back. */
+.sound.is-theatre{backdrop-filter:none; filter:none} /* taste-skill-ignore: the absence of glass, not glass */
+.thumb.theatre{position:fixed; inset:0; width:100%; height:100%; border:none;
+  border-radius:0; z-index:40; background:#000}
+/* Fill: crop to cover. Costs decode area, so on a portrait phone YouTube
+   serves a much larger stream. */
+.thumb.theatre .yt, .thumb.theatre > iframe{width:max(100vw,177.78vh); height:max(100vh,56.25vw)}
+/* Fit: letterbox. The iframe never exceeds the screen, so the stream is
+   sized to the device. Much lighter, and the default in portrait. */
+.thumb.theatre.fit .yt, .thumb.theatre.fit > iframe{width:min(100vw,177.78vh); height:min(100vh,56.25vw)}
+.shade{position:fixed; inset:0; z-index:41; background:#000; opacity:0; display:none;
+  pointer-events:none; transition:opacity .4s var(--ease)}
+.shade.on{display:block}
+.catch{position:fixed; inset:0; z-index:42; display:none; cursor:pointer}
+.catch.on{display:block}
+.tbar{position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; gap:16px;
+  align-items:center; flex-wrap:wrap;
+  padding:18px 24px calc(16px + env(safe-area-inset-bottom));
+  background:var(--night); border-top:1px solid var(--line);
+  opacity:1; transition:opacity .5s var(--ease)}
+.tbar.on{display:flex}
+.tbar.idle{opacity:0; pointer-events:none}
+.tbar .tname{font-size:15px; max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.tbar .trow{display:flex; align-items:center; gap:10px}
+.tbar .trow span{font-size:13px; color:var(--ink-soft)}
+.tbar .trow input[type=range]{width:104px}
+.tbar .spacer{flex:1}
+body.theatre-on{overflow:hidden}
+/* Do NOT hide .page. The visualised video is a descendant of it, so
+   display:none on the page hid the one thing the visualiser exists to
+   show. Hide everything except the row being visualised: the iframe stays
+   rendered, and the compositor is still spared the rest of the screen. */
+body.theatre-on .page > :not(.sounds){display:none}
+body.theatre-on .sounds li:not(.is-theatre){display:none}
+body.theatre-on .sound.is-theatre > :not(.thumb){display:none}
+body.theatre-on .sound.is-theatre{display:block; padding:0; margin:0; background:none}
 
-  /* ---------- Toast ---------- */
-  .toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
-    background:var(--raised); border:1px solid var(--edge); color:var(--ink);
-    padding:11px 17px; border-radius:10px; font-size:14px;
-    pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:50}
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+/* ---------- toast and dialog ---------- */
+.toast{position:fixed; bottom:34px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
+  background:var(--raised); border:1px solid var(--edge); color:var(--ink);
+  padding:11px 17px; border-radius:10px; font-size:14px;
+  pointer-events:none; transition:opacity .3s var(--ease), transform .3s var(--ease); z-index:70}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.dlg{position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center;
+  padding:24px; background:rgba(8,8,7,.72)}
+.dlg[hidden]{display:none}
+.dlg-card{width:100%; max-width:400px; background:var(--raised); border:1px solid var(--edge);
+  border-radius:var(--radius); padding:24px}
+.dlg-card h2{font-weight:400; font-size:19px; margin:0 0 9px}
+.dlg-card p{margin:0 0 15px; font-size:14px; color:var(--ink-soft); line-height:1.55}
+.dlg-card p[hidden]{display:none}
+.dlg-card input{width:100%; color:var(--ink); font:inherit; font-size:15px;
+  background:var(--night); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:0 14px; height:var(--tap); margin-bottom:16px}
+.dlg-card input[hidden]{display:none}
+.dlg-card input:focus{outline:none; border-color:var(--ink-soft)}
+.dlg-row{display:flex; gap:10px; justify-content:flex-end}
+body.dialog-on{overflow:hidden}
 
-  /* ---------- Dialog ---------- */
-  .dlg{position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
-    padding:24px; background:rgba(8,8,7,.72)}
-  .dlg[hidden]{display:none}
-  .dlg-card{width:100%; max-width:400px; background:var(--raised); border:1px solid var(--edge);
-    border-radius:var(--radius); padding:24px}
-  .dlg-card h2{font-weight:400; font-size:19px; margin:0 0 9px}
-  .dlg-card p{margin:0 0 15px; font-size:14px; color:var(--ink-soft); line-height:1.55}
-  .dlg-card p[hidden]{display:none}
-  .dlg-card input{width:100%; color:var(--ink); font:inherit; font-size:15px;
-    background:var(--night); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:12px 14px; margin-bottom:16px}
-  .dlg-card input[hidden]{display:none}
-  .dlg-card input:focus{outline:none; border-color:var(--ink-soft)}
-  .dlg-row{display:flex; gap:10px; justify-content:flex-end}
-  body.dialog-on{overflow:hidden}
+.sr-only{position:absolute; width:1px; height:1px; margin:-1px; padding:0; border:0;
+  clip:rect(0 0 0 0); clip-path:inset(50%); overflow:hidden; white-space:nowrap}
 
-  @media (max-width:520px){
-    .grid{grid-template-columns:1fr}
-    .dock{gap:12px} .dock .mvol{width:92px}
-    .brand .tag{display:none}
-    .dock-toggle #wakeLabel{min-width:0}
-    .tbar{gap:10px; padding:16px 16px calc(14px + env(safe-area-inset-bottom))}
-    .tbar .tname{max-width:120px; font-size:14px}
-    .tbar .trow input[type=range]{width:66px}
-    .tbar .pill{padding:8px 13px; font-size:12.5px}
-  }
-  /* Phones in theatre mode: the bar sits over the video, so it must stay
-     one or two rows, never three. Drop what the video itself already
-     tells you (the layer name) and let the icons carry the buttons. */
-  @media (max-width:430px){
-    :root{--wave-h:30px}
-    .tbar{gap:8px; padding:13px 12px calc(12px + env(safe-area-inset-bottom))}
-    .tbar .tname{display:none}
-    .tbar .trow span{display:none}
-    .tbar .trow input[type=range]{width:66px}
-    .tbar .pill{padding:8px 10px; font-size:12px}
-    #tall .ico{width:14px; height:14px}
-    #tallLabel{display:none}
-    /* The label is redundant once space is tight: the icon is the whole word. */
-    #texit{font-size:15px; line-height:1; padding:8px 11px}
-    #texit .word{display:none}
-  }
-  /* Narrow cards (and narrow phones): the footer rows stack rather than
-     letting a chip escape the card's padding. */
-  @media (max-width:380px){
-    .layer{padding:17px}
-    .foot-row{gap:6px}
-    .tvbtn,.remove{padding:7px 9px}
-  }
+@media (max-width:560px){
+  .page{padding:28px 18px calc(28px + env(safe-area-inset-bottom))}
+  .wordmark{margin-bottom:26px}
+  .now{margin-bottom:22px}
+  .now h1{font-size:25px}
+  .sound{gap:11px; padding:9px 10px; margin:0 -10px 4px}
+  .extras{padding:2px 10px 12px 61px; margin:0 -10px}
+  .transport{padding-top:26px; gap:13px}
+  .sheet-card{padding:20px 18px calc(24px + env(safe-area-inset-bottom)); max-height:90vh}
+  .sheet-row > span{min-width:0}
+  input[type=range]{width:130px}
+  .tbar{gap:10px; padding:14px 14px calc(13px + env(safe-area-inset-bottom))}
+  .tbar .tname{max-width:120px; font-size:14px}
+  .tbar .trow input[type=range]{width:66px}
+}
+/* Phones in the visualiser: the bar sits over the video, so it must stay
+   one or two rows, never three. Drop what the video already tells you. */
+@media (max-width:430px){
+  .tbar .tname{display:none}
+  .tbar .trow span{display:none}
+  #tall .ico{width:14px; height:14px}
+  #tallLabel{display:none}
+  #texit{padding:0 13px}
+  #texit .word{display:none}
+}
 
-  @media (prefers-reduced-motion: reduce){
-    *,*::before,*::after{transition-duration:.01ms !important; animation:none !important}
-  }
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition-duration:.01ms !important; animation:none !important}
+}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">    <h1>murmur</h1>
-    <span class="tag">a calm soundscape mixer</span>
-  </div>
-  <div class="spacer"></div>
-  <button class="pill ghost" id="btnShare">Share</button>
-  <button class="pill ghost" id="btnExport">Export</button>
-  <button class="pill ghost" id="btnImport">Import</button>
-  <input type="file" id="fileImport" accept="application/json" hidden>
-</header>
+<main class="page">
+  <p class="wordmark">
+    <svg class="mark" width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" focusable="false">
+      <rect x="0" y="1" width="3" height="12" rx="1.5"/>
+      <rect x="6" y="2.5" width="3" height="9" rx="1.5"/>
+      <rect x="12" y="4" width="3" height="6" rx="1.5"/>
+    </svg>murmur</p>
 
-<div class="wrap">
-  <div class="label" style="margin-top:0">Built-in sounds<span class="label-note">: no network, works offline</span></div>
-  <div class="synths" id="synths"></div>
+  <header class="now">
+    <h1 id="mixname">nothing playing</h1>
+    <p class="sum" id="sum"></p>
+  </header>
 
-  <div class="label">Add from YouTube</div>
-  <div class="addbar">
-    <label for="urlInput" class="sr-only">YouTube link or video ID</label>
-    <input id="urlInput" type="text" placeholder="Paste a YouTube link or video ID…" autocomplete="off">
-    <button class="primary" id="btnAdd">Add layer</button>
+  <div class="master">
+    <label for="masterVol">everything</label>
+    <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
   </div>
 
-  <div id="grid" class="grid"></div>
-  <div id="resume" class="resume" hidden>
-    <span>Your last soundscape is ready: <b id="resumeCount"></b>, paused.</span>
-    <div class="spacer"></div>
-    <button class="pill primary" id="btnResume">Resume</button>
-    <button class="pill ghost" id="btnDiscard">Start fresh</button>
-  </div>
+  <ul class="sounds" id="grid"></ul>
+
   <div id="empty" class="empty">
-    <h3>A quiet canvas</h3>
-    <p>Tap a starter preset below, or paste any YouTube link to begin your soundscape.</p>
+    <p>start with a blend, or <b>add a sound</b> of your own.</p>
+    <div class="starters" id="starters"></div>
   </div>
-  <div id="update" class="resume" hidden>
-    <span><b>A new version is ready.</b> Your mix keeps playing: reload when it suits you.</span>
+
+  <div id="resume" class="notice" hidden>
+    <span>your last soundscape is ready: <b id="resumeCount"></b>, paused.</span>
     <div class="spacer"></div>
-    <button class="pill primary" id="btnUpdate">Reload now</button>
-    <button class="pill ghost" id="btnUpdateLater">Later</button>
+    <button class="primary" id="btnResume">resume</button>
+    <button id="btnDiscard">start fresh</button>
   </div>
-  <div id="iosNote" class="resume" hidden>
-    <span><b>On iPhone and iPad, use the built-in sounds.</b>
+
+  <div id="update" class="notice" hidden>
+    <span><b>a new version is ready.</b> your mix keeps playing: reload when it suits you.</span>
+    <div class="spacer"></div>
+    <button class="primary" id="btnUpdate">reload now</button>
+    <button id="btnUpdateLater">later</button>
+  </div>
+
+  <div id="iosNote" class="notice" hidden>
+    <span><b>on iPhone and iPad, use the built-in sounds.</b>
       Apple does not allow web pages to set the volume of a YouTube video, so
-      video layers all play at full and cannot be balanced. The built-in
-      sounds below are generated on your device and mix properly.</span>
+      video layers all play at full and cannot be balanced. the built-in
+      sounds are generated on your device and mix properly.</span>
     <div class="spacer"></div>
-    <button class="pill ghost" id="btnIosOk">Got it</button>
+    <button id="btnIosOk">got it</button>
   </div>
 
-  <div class="label">Starter presets</div>
-  <div class="presets" id="presets"></div>
+  <footer class="transport">
+    <button class="primary with-ico" id="btnPlayAll"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>play all</button>
+    <button id="btnStopAll" class="with-ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>pause all</button>
+    <div class="spacer"></div>
+    <button class="quiet" id="btnOpenAdd">add a sound</button>
+    <span class="sep" aria-hidden="true">&middot;</span>
+    <button class="quiet" id="btnOpenMixes">mixes</button>
+    <span class="sep" aria-hidden="true">&middot;</span>
+    <button class="quiet" id="btnOpenMore">more</button>
+    <span class="left" id="timerLeft"></span>
+  </footer>
+</main>
 
-  <div class="label">Saved mixes</div>
-  <div class="mixes" id="mixes">
-    <button class="pill" id="btnSave">Save current mix</button>
-    <span class="hint" id="noMixes" style="margin:0">Nothing saved yet.</span>
+<!-- ============ sheets ============
+     Everything that builds a mix. Opened on purpose and closed again, so
+     the player is never buried under its own tooling. -->
+
+<section class="sheet" id="sheetAdd" role="dialog" aria-modal="true" aria-labelledby="sheetAddTitle" hidden>
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetAddTitle">add a sound</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+    <p class="note">built in, generated on your device. no network, and they mix properly everywhere.</p>
+    <div class="synths" id="synths"></div>
+    <p class="note">anything else, from YouTube.</p>
+    <div class="addbar">
+      <label for="urlInput" class="sr-only">YouTube link or video ID</label>
+      <input id="urlInput" type="text" placeholder="paste a link or video ID" autocomplete="off">
+      <button class="primary" id="btnAdd">add</button>
+    </div>
   </div>
+</section>
 
-  <p class="hint" id="hint">
-    <b>Built-in sounds</b> are generated in the browser: no download, no network,
-    and they keep playing offline and with the screen off. Each has a Tone control
-    instead of Speed. <b>YouTube layers</b> bring anything else, with speed and a
-    full-screen visualiser, but need a connection, and they stream and decode
-    video even though only the audio is used, so several at once will warm a phone
-    and drain it. Video is held at the lowest quality unless you open the
-    visualiser; on battery, prefer the built-in sounds.
-    Add this to your phone's home screen and it runs as its own app.
-    Audio begins after your first tap. Speed steps in 0.25× increments. That's the finest
-    YouTube's player allows. Mixing several videos works best with the screen on; turn on
-    <b>Screen staying on</b> in the bar below if Android pauses background audio.
-    Tap <b>Visualise</b> on any video layer to fill the screen with it. If playback stutters,
-    switch the visualiser to <b>Fit</b>: it letterboxes instead of cropping, which is far
-    lighter on the phone.
-    A preset replaces what's playing; save your own blend first if you want to keep it.
-    Your current blend is remembered between visits.
-  </p>
-</div>
+<section class="sheet" id="sheetMixes" role="dialog" aria-modal="true" aria-labelledby="sheetMixesTitle" hidden>
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetMixesTitle">mixes</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+    <p class="note">a starter blend replaces what is playing. save yours first if you want to keep it.</p>
+    <div class="presets" id="presets"></div>
+    <p class="note">your own.</p>
+    <div class="mixes" id="mixes">
+      <button id="btnSave">save this mix</button>
+      <span id="noMixes">nothing saved yet.</span>
+    </div>
+  </div>
+</section>
+
+<section class="sheet" id="sheetMore" role="dialog" aria-modal="true" aria-labelledby="sheetMoreTitle" hidden>
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetMoreTitle">more</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+
+
+    <div class="sheet-row">
+      <span>fade out</span>
+      <select id="sleepSel" aria-label="Sleep timer">
+        <option value="0">never</option>
+        <option value="15">in about fifteen minutes</option>
+        <option value="30">in about half an hour</option>
+        <option value="45">in about three quarters of an hour</option>
+        <option value="60">in about an hour</option>
+        <option value="90">in about an hour and a half</option>
+        <option value="120">in about two hours</option>
+      </select>
+    </div>
+
+    <div class="sheet-row">
+      <span>screen</span>
+      <label class="toggle dock-toggle" title="Stops the screen sleeping, so audio keeps playing on mobile">
+        <input type="checkbox" id="btnWake"><span class="sw"></span>
+        <span id="wakeLabel">may sleep</span>
+      </label>
+    </div>
+
+    <div class="sheet-row">
+      <span>this mix</span>
+      <button id="btnShare">share</button>
+      <button id="btnExport">export</button>
+      <button id="btnImport">import</button>
+      <input type="file" id="fileImport" accept="application/json" hidden>
+      <button id="btnClearAll">clear all</button>
+    </div>
+
+    <details class="about">
+      <summary>about the sounds</summary>
+      <p id="hint">
+        <b>built-in sounds</b> are generated in the browser: no download, no network,
+        and they keep playing offline and with the screen off. each has a tone control
+        instead of speed. <b>YouTube layers</b> bring anything else, with speed and a
+        full-screen visualiser, but need a connection, and they stream and decode
+        video even though only the audio is used, so several at once will warm a phone
+        and drain it. video is held at the lowest quality unless you open the
+        visualiser; on battery, prefer the built-in sounds.
+        add this to your phone's home screen and it runs as its own app.
+        audio begins after your first tap. speed steps in quarters, which is the finest
+        YouTube's player allows. mixing several videos works best with the screen on;
+        turn <b>screen staying on</b> on if Android pauses background audio.
+        expand any video row and tap <b>visualise</b> to fill the screen with it. if
+        playback stutters, switch the visualiser to <b>fit</b>: it letterboxes instead
+        of cropping, which is far lighter on the phone.
+        your current blend is remembered between visits.
+      </p>
+    </details>
+  </div>
+</section>
 
 <div class="shade" id="shade"></div>
 <div class="catch" id="catch"></div>
 <div class="tbar" id="tbar">
-  <button class="playbtn" id="tplay" style="width:42px; height:42px" aria-label="Play" title="Play"></button>
+  <button class="playbtn" id="tplay" style="width:40px; height:40px" aria-label="Play" title="Play"></button>
   <span class="tname" id="tname"></span>
-  <div class="trow"><span>Volume</span><input type="range" id="tvol" min="0" max="100" value="60" aria-label="Visualiser layer volume"></div>
-  <div class="trow"><span>Dim</span><input type="range" id="tdim" min="0" max="85" value="35" aria-label="Screen dim level"></div>
+  <div class="trow"><span>level</span><input type="range" id="tvol" min="0" max="100" value="60" aria-label="Visualiser layer volume"></div>
+  <div class="trow"><span>dim</span><input type="range" id="tdim" min="0" max="85" value="35" aria-label="Screen dim level"></div>
   <div class="spacer"></div>
-  <button class="pill ghost with-ico" id="tall" aria-label="Pause all layers">
+  <button class="with-ico" id="tall" aria-label="Pause all layers">
     <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>
-    <span id="tallLabel">Pause all</span>
+    <span id="tallLabel">pause all</span>
   </button>
-  <button class="pill ghost" id="tfit">Fit</button>
-  <button class="pill ghost" id="texit" aria-label="Exit the visualiser" title="Exit the visualiser"><span class="word">Exit </span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
-</div>
-
-<div class="dock">
-  <button class="primary with-ico" id="btnPlayAll"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>Play all</button>
-  <button id="btnStopAll" class="with-ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>Pause all</button>
-  <button id="btnClearAll">Clear all</button>
-  <label class="toggle dock-toggle" title="Stops the screen sleeping, so audio keeps playing on mobile">
-    <input type="checkbox" id="btnWake"><span class="sw"></span>
-    <span id="wakeLabel">Screen may sleep</span>
-  </label>
-  <div class="mrow"><span>Master</span><input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume"></div>
-  <div class="spacer"></div>
-  <div class="timer">
-    <span>Sleep</span>
-    <select id="sleepSel" aria-label="Sleep timer">
-      <option value="0">Off</option>
-      <option value="15">15 min</option>
-      <option value="30">30 min</option>
-      <option value="45">45 min</option>
-      <option value="60">1 hour</option>
-      <option value="90">1.5 hours</option>
-      <option value="120">2 hours</option>
-    </select>
-    <span class="left" id="timerLeft"></span>
-  </div>
+  <button id="tfit">fit</button>
+  <button id="texit" aria-label="Exit the visualiser" title="Exit the visualiser"><span class="word">exit </span><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -582,11 +657,12 @@
     <p id="dlgBody" hidden></p>
     <input id="dlgInput" type="text" autocomplete="off" aria-labelledby="dlgTitle" hidden>
     <div class="dlg-row">
-      <button class="pill ghost" id="dlgCancel">Cancel</button>
-      <button class="pill primary" id="dlgOk">OK</button>
+      <button id="dlgCancel">cancel</button>
+      <button class="primary" id="dlgOk">ok</button>
     </div>
   </div>
 </div>
+
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
@@ -833,6 +909,31 @@
   function isSynth(L){ return L.kind==="wa"; }
 
   /* Tone reads as a word, not a number: "60" means nothing, "brighter" does. */
+  /* Speed in words, not a multiplier. There is no number anywhere in this
+     app, and "a little slower" tells you more than "0.75x" does. */
+  function speedLabel(v){
+    if(v<=0.3)  return "much slower";
+    if(v<=0.55) return "slower";
+    if(v<0.95)  return "a little slower";
+    if(v<1.05)  return "as recorded";
+    if(v<1.3)   return "a little faster";
+    if(v<1.8)   return "faster";
+    return "much faster";
+  }
+  /* The sleep timer is spoken approximately and never as a clock.
+     Clock-watching is a behaviour sleep therapy actively targets. */
+  function leftWords(ms){
+    var m=ms/60000;
+    if(m>=75) return "about an hour and a half left";
+    if(m>=50) return "about an hour left";
+    if(m>=38) return "about three quarters of an hour left";
+    if(m>=23) return "about half an hour left";
+    if(m>=12) return "about fifteen minutes left";
+    if(m>=4)  return "a few minutes left";
+    if(m>=1)  return "nearly done";
+    return "fading out";
+  }
+
   function toneLabel(v){
     v=v==null?50:v;
     if(v<20) return "darkest";
@@ -858,6 +959,8 @@
   var ICON_PLAY='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
     '<path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>';
   var ICON_CLOSE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg>';
+  var ICON_CHEV='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
+    '<path d="M12 15.4 5.6 9l1.4-1.4 5 5 5-5L18.4 9z"/></svg>';
   var ICON_PAUSE='<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">'+
     '<rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/>'+
     '<rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>';
@@ -1292,7 +1395,14 @@
      synth kind, so it is stable between sessions and does not change when
      the title arrives late: rain never looks like wind. The level is its
      amplitude, applied as one scaleY on the container, so a drag writes a
-     single style per card per frame instead of one per stroke. */
+     single style per card per frame instead of one per stroke.
+
+     This shape is generated, not measured, and that is a decision rather
+     than a shortcut. A built-in sound runs through Web Audio, so its true
+     spectrum is available and was tried: every sound here is broadband, so
+     every real spectrum is the same smooth falling slope, and tilting and
+     smoothing it only produced a uniform block. The generated signature
+     tells rain from a drone at a glance, which is the job. */
   var WAVE_STROKES=150, WAVE_H=34;
   function waveSeed(s){ var h=0,i; for(i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%100000; return h; }
   function waveShape(seed,i){
@@ -1334,11 +1444,21 @@
        comment claimed a trace remained and nothing was actually drawn. */
     if(s&&s.style) s.style.transform="scaleY("+(0.14+0.86*(L.volume/100)).toFixed(3)+")";
     var lab=document.getElementById("vlab_"+L.uid);
-    if(lab) lab.textContent=nearness(L.volume);
+    /* An unavailable layer has no level, so it must not claim one. */
+    var words=L.unavailable?"unavailable":nearness(L.volume);
+    if(lab) lab.textContent=words;
     w.setAttribute("aria-valuenow",String(L.volume));
-    w.setAttribute("aria-valuetext",nearness(L.volume));
-    w.className=L.volume>0?"wave":"wave off";
+    w.setAttribute("aria-valuetext",words);
+    /* Keep the base class. This used to assign "wave", which is what the
+       control itself was called before a card became a row. It silently
+       deleted .band from the element on first paint, so the element fell
+       back to .wave{display:flex;height:30px;overflow:hidden} and the name,
+       the distance and the waveform collapsed onto one clipped line. The
+       preview harness writes static markup and never calls this, which is
+       why it looked right everywhere except in the actual app. */
+    w.className=L.volume>0?"band":"band off";
   }
+
   function setLayerVolume(L,v){
     L._vraw=Math.max(0,Math.min(100,v));
     var r=Math.round(L._vraw);
@@ -1347,6 +1467,7 @@
       if(theatreLayer===L){ tvol.value=r; fillSlider(tvol); }
     }
     paintWave(L);
+    markDominant();
   }
   /* Relative drag: the level moves by how far the thumb moves, never to
      where it landed. There is nothing to aim at, which is the point when the
@@ -1387,39 +1508,46 @@
     layers.forEach(function(L){
       var el=document.getElementById("card_"+L.uid);
       if(!el){
-        el=document.createElement("div"); el.className="layer"; el.id="card_"+L.uid;
+        el=document.createElement("li"); el.className="sound"; el.id="card_"+L.uid;
         var synth=isSynth(L);
+        /* A sound is a row: name, distance, waveform. Everything else is
+           real but lives in the row you expand, because a control needed
+           once a week should not be lit all night. The thumbnail is not
+           decoration, it is the YouTube player: hiding it stops audio.
+           Every string below is a literal or L.uid, an integer counter. The
+           layer title is never interpolated here: it arrives afterwards via
+           textContent, so no caption or YouTube title can reach innerHTML. */
         el.innerHTML=
-          '<div class="layer-head">'+
-            (synth
-              ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
-              : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
-            '<div class="meta"><p class="title" id="title_'+L.uid+'"></p><div class="status" id="status_'+L.uid+'"></div></div>'+
-            '<button class="playbtn" id="pp_'+L.uid+'" aria-label="Play" title="Play">'+ICON_PLAY+'</button>'+
-          '</div>'+
-          '<div class="ctl"><div class="lab"><span id="vname_'+L.uid+'">Volume</span><b id="vlab_'+L.uid+'"></b></div>'+
-            '<div class="wave" id="vol_'+L.uid+'" role="slider" aria-valuemin="0" aria-valuemax="100"'+
-              ((IS_IOS && !synth)?' aria-disabled="true" title="iOS does not allow web pages to change a video\'s volume"':' tabindex="0"')+
-              ' aria-labelledby="vname_'+L.uid+' title_'+L.uid+'"><span class="strokes"></span></div></div>'+
           (synth
-            ? '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Tone</span><b id="slab_'+L.uid+'"></b></div>'+
-              '<input type="range" min="0" max="100" id="tone_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'
-            : '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">Speed</span><b id="slab_'+L.uid+'"></b></div>'+
-              '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>')+
-          '<div class="layer-foot">'+
+            ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
+            : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
+          '<span class="sr-only" id="vname_'+L.uid+'">Level</span>'+
+          '<div class="band" id="vol_'+L.uid+'" role="slider" aria-valuemin="0" aria-valuemax="100"'+
+            ((IS_IOS && !synth)?' aria-disabled="true" title="iOS does not allow web pages to set the volume of a video"':' tabindex="0"')+
+            ' aria-labelledby="vname_'+L.uid+' title_'+L.uid+'">'+
+            '<span class="cap"><span class="name" id="title_'+L.uid+'"></span>'+
+              '<span class="near" id="vlab_'+L.uid+'"></span></span>'+
+            '<span class="wave"><span class="strokes"></span></span>'+
+          '</div>'+
+          '<button class="playbtn" id="pp_'+L.uid+'" aria-label="Play" title="Play">'+ICON_PLAY+'</button>'+
+          '<button class="more" id="exp_'+L.uid+'" aria-expanded="false" aria-controls="ex_'+L.uid+'" aria-label="More for this sound">'+ICON_CHEV+'</button>'+
+          '<div class="extras" id="ex_'+L.uid+'" hidden>'+
+            '<div class="status" id="status_'+L.uid+'"></div>'+
+            (synth
+              ? '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">tone</span><b id="slab_'+L.uid+'"></b></div>'+
+                '<input type="range" min="0" max="100" id="tone_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>'
+              : '<div class="ctl"><div class="lab"><span id="sname_'+L.uid+'">speed</span><b id="slab_'+L.uid+'"></b></div>'+
+                '<input type="range" min="0.25" max="2" step="0.25" id="spd_'+L.uid+'" aria-labelledby="sname_'+L.uid+' title_'+L.uid+'"></div>')+
             '<div class="foot-row">'+
               (synth
-                ? '<span class="tag-synth">Synth</span>'
-                : '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>Loop</label>')+
+                ? '<span class="tag-synth">built in</span>'
+                : '<label class="toggle"><input type="checkbox" id="loop_'+L.uid+'"><span class="sw"></span>loop</label>')+
               '<div class="spacer"></div>'+
-              '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">Mute</button>'+
-              '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">Solo</button>'+
-            '</div>'+
-            '<div class="foot-row">'+
-              (synth ? '' : '<button class="tvbtn" id="tv_'+L.uid+'" aria-pressed="false">Visualise</button>'+
-                            '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>Retry</button>')+
-              '<div class="spacer"></div>'+
-              '<button class="remove" id="rm_'+L.uid+'">Remove</button>'+
+              '<button class="tvbtn" id="mute_'+L.uid+'" aria-pressed="false">mute</button>'+
+              '<button class="tvbtn" id="solo_'+L.uid+'" aria-pressed="false">solo</button>'+
+              (synth ? '' : '<button class="tvbtn" id="tv_'+L.uid+'" aria-pressed="false">visualise</button>'+
+                            '<button class="tvbtn retry" id="retry_'+L.uid+'" hidden>retry</button>')+
+              '<button class="remove" id="rm_'+L.uid+'">remove</button>'+
             '</div>'+
           '</div>';
         grid.appendChild(el);
@@ -1431,7 +1559,7 @@
            no Loop, Visualise or Retry: query defensively, not positionally. */
         var spd=el.querySelector("#spd_"+L.uid);
         if(spd) spd.addEventListener("input",function(){ L.speed=snapRate(L,+spd.value); applySpeed(L);
-          document.getElementById("slab_"+L.uid).textContent=L.speed.toFixed(2)+"×"; fillSlider(spd); saveSession(); });
+          document.getElementById("slab_"+L.uid).textContent=speedLabel(L.speed); fillSlider(spd); saveSession(); });
         var tn=el.querySelector("#tone_"+L.uid);
         if(tn) tn.addEventListener("input",function(){ L.tone=+tn.value; applyTone(L);
           document.getElementById("slab_"+L.uid).textContent=toneLabel(L.tone); fillSlider(tn); saveSession(); });
@@ -1445,6 +1573,12 @@
         var tvb=el.querySelector("#tv_"+L.uid);
         if(tvb) tvb.addEventListener("click",function(){ enterTheatre(L); });
         el.querySelector("#rm_"+L.uid).addEventListener("click",function(){ removeLayer(L); });
+        var ex=el.querySelector("#ex_"+L.uid), exb=el.querySelector("#exp_"+L.uid);
+        if(ex&&exb) exb.addEventListener("click",function(){
+          var opening=ex.hidden;
+          ex.hidden=!opening;
+          exb.setAttribute("aria-expanded",opening?"true":"false");
+        });
       }
       document.getElementById("title_"+L.uid).textContent=L.title;
       paintWave(L);
@@ -1456,7 +1590,7 @@
       } else {
         var spd2=document.getElementById("spd_"+L.uid);
         if(spd2 && document.activeElement!==spd2){ spd2.value=L.speed; fillSlider(spd2); }
-        if(slab) slab.textContent=L.speed.toFixed(2)+"×";
+        if(slab) slab.textContent=speedLabel(L.speed);
         var lp2=document.getElementById("loop_"+L.uid);
         if(lp2) lp2.checked=L.loop;
       }
@@ -1519,14 +1653,32 @@
     if(theatreLayer===L) tname.textContent=L.title;
     updateMediaSession();
   }
+  /* The loudest sound that is actually audible. Muted, soloed-out and
+     unavailable layers cannot be what you are mostly hearing, so they are
+     never it; with nothing playing, nothing is marked. */
+  function markDominant(){
+    var best=null;
+    layers.forEach(function(L){
+      if(!L.playing || L.unavailable || L.muted) return;
+      if(soloLayer && soloLayer!==L) return;
+      if(!best || L.volume>best.volume) best=L;
+    });
+    layers.forEach(function(L){
+      var el=document.getElementById("card_"+L.uid);
+      if(el) el.classList.toggle("dominant", L===best && L.volume>0);
+    });
+  }
+
   function renderPlaying(L){
     /* Global controls depend on the whole layer set, not on this card being
        in the DOM, so they are synced before any early return. */
     syncControls();
     var el=document.getElementById("card_"+L.uid); if(!el) return;
     el.classList.toggle("playing",L.playing && !L.unavailable);
+    markDominant();
     el.classList.toggle("gone",!!L.unavailable);
     el.classList.toggle("silent",!L.unavailable && (L.muted || (soloLayer && soloLayer!==L)));
+    renderNow();
     var pp=document.getElementById("pp_"+L.uid); setPlayIcon(pp,L.playing);
     if(theatreLayer===L) setPlayIcon(tplay,L.playing);
     if(theatreLayer) syncTheatreAll();
@@ -1539,10 +1691,67 @@
        say the same thing. On iOS the control cannot move a YouTube player's
        volume at all, so naming any level for a video layer would be a lie. */
     var vol = (IS_IOS && !isSynth(L)) ? "full volume (iOS)" : nearness(L.volume);
-    var mid = isSynth(L) ? toneLabel(L.tone) : L.speed.toFixed(2)+"×";
+    var mid = isSynth(L) ? toneLabel(L.tone) : speedLabel(L.speed);
     s.innerHTML=(L.playing?'<span class="live">● playing</span>':"paused")+" · "+mid+" · "+vol+why;
   }
+  /* ---------- the surface keeps the night ----------
+     The one thing on this screen that is alive. Ground, lines and the
+     waveform's tone move with the real clock: open and warm in the
+     evening, at their darkest and quietest around half past three, back up
+     towards morning. Never a clock, never a number, never a notification.
+     You should only ever notice that it feels later.
+
+     Ink barely moves and the ground only darkens, so contrast rises rather
+     than falls as the night goes on. */
+  var NIGHT_BASE={night:"#131211",raised:"#1A1917",lift:"#211F1C",line:"#2E2B27",hue:"#C9975C",
+    edge:"#332F2B",wave:"#8C8881",waveoff:"#45423E",ink:"#E8E6E1",inksoft:"#9D9A94"};
+  var NIGHT_DEEP={night:"#0D0C0B",raised:"#141312",lift:"#1A1917",line:"#262320",hue:"#A8794A",
+    edge:"#2B2825",wave:"#7E7A74",waveoff:"#3C3935",ink:"#E2DFDA",inksoft:"#8F8C86"};
+  function hex2rgb(h){ return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]; }
+  function mixHex(a,b,t){
+    var x=hex2rgb(a), y=hex2rgb(b), o="#";
+    for(var i=0;i<3;i++){
+      var v=Math.round(x[i]+(y[i]-x[i])*t).toString(16);
+      o+=v.length<2?"0"+v:v;
+    }
+    return o;
+  }
+  /* 0 through the day, rising from six in the evening to one at 03:30, back
+     to zero by eight. */
+  function nightDepth(d){
+    var h=d.getHours()+d.getMinutes()/60;
+    if(h>=8 && h<18) return 0;
+    var x = h>=18 ? (h-18) : (h+6);
+    return x<=9.5 ? x/9.5 : Math.max(0,1-(x-9.5)/4.5);
+  }
+  function applyNight(){
+    /* The verification harness runs this against a stub DOM with no
+       documentElement, and a real browser can call it before the element
+       exists if the script is ever moved into the head. */
+    var root=document.documentElement;
+    if(!root || !root.style || !root.style.setProperty) return;
+    var t=nightDepth(new Date()), r=root.style;
+    for(var k in NIGHT_BASE){
+      if(!NIGHT_BASE.hasOwnProperty(k)) continue;
+      var name = k==="waveoff" ? "--wave-off" : k==="inksoft" ? "--ink-soft" : "--"+k;
+      r.setProperty(name, mixHex(NIGHT_BASE[k],NIGHT_DEEP[k],t));
+    }
+  }
+  /* The screen answers one question: what am I listening to? */
+  function renderNow(){
+    applyNight();
+    var t=document.getElementById("mixname"), s=document.getElementById("sum");
+    if(!t||!s) return;
+    var n=layers.length;
+    var live=layers.filter(function(L){ return L.playing && !L.unavailable; }).length;
+    t.textContent = n ? (currentMixName || "your mix") : "nothing playing";
+    if(!n) s.textContent="";
+    else if(live===0) s.textContent="all quiet.";
+    else if(live===1) s.textContent="one sound.";
+    else s.textContent=live+" sounds together.";
+  }
   function refreshEmpty(){
+    renderNow();
     document.getElementById("empty").style.display=layers.length?"none":"block";
     syncControls();
   }
@@ -1717,7 +1926,12 @@
   }
 
   function renderPresets(){
-    var box=document.getElementById("presets");
+    /* Rendered twice: into the mixes sheet, and into the empty state where
+       the rows will appear. A first run whose only action is "play all" on
+       an empty mix gives someone nothing to do. */
+    ["presets","starters"].forEach(function(id){
+    var box=document.getElementById(id);
+    if(!box) return;
     PRESETS.forEach(function(p){
       var b=document.createElement("button"); b.className="preset"; b.title=p.note;
       var n=document.createElement("span"); n.className="n"; n.textContent=p.name;
@@ -1725,6 +1939,7 @@
       b.appendChild(n); b.appendChild(c);
       b.addEventListener("click",function(){ loadPreset(p); });
       box.appendChild(b);
+    });
     });
   }
 
@@ -2113,8 +2328,7 @@
     var tickFn=function(){
       var left=sleepEndsAt-Date.now();
       if(left<=0){ clearInterval(sleepTick); document.getElementById("timerLeft").textContent=""; return; }
-      var mm=Math.floor(left/60000), ss=Math.floor((left%60000)/1000);
-      document.getElementById("timerLeft").textContent=mm+":"+(ss<10?"0":"")+ss;
+      document.getElementById("timerLeft").textContent=leftWords(left);
       if(left<=FADE_MS && Date.now()-lastFadeAt>=FADE_STEP){
         lastFadeAt=Date.now();
         fadeFactor=Math.pow(Math.max(left,0)/FADE_MS,0.5);
@@ -2132,6 +2346,58 @@
   }
 
   var toastEl=document.getElementById("toast"), toastT;
+  /* ---------- sheets ----------
+     Everything that builds a mix lives behind one of these: the built-in
+     sounds, the YouTube field, the presets, the saved mixes, master
+     volume, the sleep timer and the wake lock. They used to occupy the
+     main screen permanently, which turned a player into a workbench. */
+  var SHEETS={add:"sheetAdd", mixes:"sheetMixes", more:"sheetMore"};
+  var openSheetEl=null, sheetOpener=null;
+  function closeSheet(){
+    if(!openSheetEl) return;
+    openSheetEl.hidden=true; openSheetEl=null;
+    document.body.classList.remove("sheet-on");
+    /* focus goes back where it came from, or it lands on the page body
+       and a keyboard user loses their place entirely */
+    if(sheetOpener&&sheetOpener.focus) sheetOpener.focus();
+  }
+  function showSheet(key){
+    var el=document.getElementById(SHEETS[key]); if(!el) return;
+    closeSheet();
+    openSheetEl=el; el.hidden=false;
+    document.body.classList.add("sheet-on");
+    var first=el.querySelector("button,input,select");
+    if(first&&first.focus) first.focus();
+  }
+  [["btnOpenAdd","add"],["btnOpenMixes","mixes"],["btnOpenMore","more"]].forEach(function(p){
+    var b=document.getElementById(p[0]);
+    if(b) b.addEventListener("click",function(){ sheetOpener=b; showSheet(p[1]); });
+  });
+  Object.keys(SHEETS).forEach(function(k){
+    var el=document.getElementById(SHEETS[k]); if(!el) return;
+    /* the scrim closes it; a click inside the card does not */
+    el.addEventListener("click",function(e){ if(e.target===el) closeSheet(); });
+    var x=el.querySelector("[data-close]");
+    if(x) x.addEventListener("click",closeSheet);
+  });
+  /* Choosing something is the end of the errand, so the sheet gets out of
+     the way rather than making you dismiss it as a second step. */
+  (function(){
+    var sa=document.getElementById("sheetAdd");
+    if(sa) sa.addEventListener("click",function(e){
+      if(e.target.closest&&e.target.closest(".synth-chip,#btnAdd")) setTimeout(closeSheet,0);
+    });
+    var sm=document.getElementById("sheetMixes");
+    if(sm) sm.addEventListener("click",function(e){
+      if(e.target.closest&&e.target.closest(".preset,.mix .name")) setTimeout(closeSheet,250);
+    });
+  })();
+  document.addEventListener("keydown",function(e){
+    /* the dialog is modal over the sheet, so it gets Escape first */
+    var d=document.getElementById("dlg");
+    if(e.key==="Escape" && openSheetEl && d && d.hidden) closeSheet();
+  });
+
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add("show");
     clearTimeout(toastT); toastT=setTimeout(function(){ toastEl.classList.remove("show"); },2600); }
 
@@ -2267,6 +2533,12 @@
       }).catch(function(){});
     });
   }
+  /* The night moves whether or not anything is clicked, so the surface
+     has to keep up on its own. Five minutes is finer than the eye can
+     see over an eight hour night and costs nothing. */
+  applyNight();
+  setInterval(applyNight, 300000);
+  document.addEventListener("visibilitychange", function(){ if(!document.hidden) applyNight(); });
 })();
 </script>
 </body>

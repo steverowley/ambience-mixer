@@ -4,7 +4,7 @@
 No SVG rasteriser is assumed to be present (no cairosvg / ImageMagick /
 rsvg on the author's machine), so the same design is drawn directly: a dark
 radial field, three concentric rings spreading outward from the centre, and
-a glowing accent orb — the app's breathing-orb mark.
+a glowing accent orb: the app's breathing-orb mark.
 
 Everything is drawn at 4x and downsampled for clean edges.
 
@@ -26,7 +26,7 @@ GLOW = (169, 208, 224)   # #a9d0e0
 
 
 def radial_bg(size):
-    """Dark radial gradient, brighter at 50%/42% — matches the SVG."""
+    """Dark radial gradient, brighter at 50%/42%: matches the SVG."""
     img = Image.new("RGB", (size, size), BG_OUT)
     px = img.load()
     cx, cy = size * 0.50, size * 0.42

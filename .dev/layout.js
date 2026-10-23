@@ -60,7 +60,7 @@ console.log(`            chip: ${chipFont}px, pad-x ${chipPadX}px, tracking ${ch
 const row1 = { name: "row 1 (Loop / Mute / Solo)",
                items: [toggleWidth("Loop"), chipWidth("Muted"), chipWidth("Soloed")] };
 /* Synth cards carry a "Synthesised" tag where a video card has the Loop
-   switch — it is the widest thing that row can hold. */
+   switch: it is the widest thing that row can hold. */
 const row1s = { name: "row 1 synth (Synth tag / Mute / Solo)",
                 items: [chipWidth("Synth") + 4, chipWidth("Muted"), chipWidth("Soloed")] };
 /* Visualise and Retry are mutually exclusive: an errored layer hides
@@ -97,7 +97,7 @@ function pillWidth(label, hasIcon) {
 }
 const labelW = 11 * 5.5;                        // "Volume"/"Dim" caps label
 /* At <=430px the bar sheds the layer name and the slider captions, and the
-   Pause all button drops to its icon — see the 430px breakpoint. */
+   Pause all button drops to its icon: see the 430px breakpoint. */
 const narrowItems = [
   42,                                           // play button
   66, 66,                                       // two sliders, no captions
@@ -137,19 +137,19 @@ ok("Pause all keeps its accessible name in sync",
 ok("theatre bar re-syncs when any layer changes state",
    /if\(theatreLayer\) syncTheatreAll\(\)/.test(html));
 console.log("\n[structure]");
-ok("footer stacks in a column",
-   /\.layer-foot\{[^}]*flex-direction:column/.test(html));
+ok("the expanded row spans every column of the row grid",
+   /\.extras\{grid-column:1\/-1/.test(html));
 ok("footer rows can wrap as a last resort",
    /\.foot-row\{[^}]*flex-wrap:wrap/.test(html));
-ok("two foot-rows are emitted per card",
-   (html.match(/'<div class="foot-row">'/g) || []).length === 2);
+ok("one control group is emitted per row",
+   (html.match(/'<div class="foot-row">'/g) || []).length === 1);
 ok("chips never split mid-label",
    /\.tvbtn\{[^}]*white-space:nowrap/.test(html));
 ok("Remove is a chip too, not bare text",
    /\.remove\{[^}]*border-radius:8px/.test(html));
 ok("spacer cannot force overflow (flex-shrink allowed)",
    /\.foot-row \.spacer\{flex:1 1 auto; min-width:0\}/.test(html));
-ok("narrow-screen breakpoint exists", /@media \(max-width:380px\)/.test(html));
+ok("narrow-screen breakpoint exists", /@media \(max-width:560px\)/.test(html));
 
 /* ---- the wake control ---- */
 console.log("\n[wake control]");

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>murmur — the field</title>
+<!--
+  Direction A: THE FIELD.
+
+  The premise the list version got wrong: this is not a screen you work in,
+  it is a screen you leave face up in a dark room. So the sounds stop being
+  rows in a table and become the room itself.
+
+  Each sound is a wide, soft band of warm tone. Its level is the band's
+  height and its presence, so a sound turned down flattens toward nothing
+  rather than dimming a bar. The one you are hearing most is the only one
+  with any colour in it. Everything drifts, slowly enough that you cannot
+  watch it happen: about a minute for a band to cross its own width.
+
+  Gradients are used deliberately and against the house rule. The rule
+  exists to stop gradients being decoration on buttons and panels. Here the
+  soft field IS the subject, the way a photograph would be on a page that
+  had one.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box; margin:0; padding:0}
+  :root{
+    --night:#0C0B0A;
+    --ink:#EDEAE4;
+    --ink-soft:#8E8A83;
+    --hue:#C9975C;
+  }
+  html,body{height:100%}
+  body{
+    background:var(--night); color:var(--ink);
+    font-family:"Figtree",system-ui,sans-serif; font-weight:300;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  canvas{position:fixed; inset:0; width:100%; height:100%; display:block}
+
+  .ui{position:fixed; inset:0; display:flex; flex-direction:column;
+      padding:34px 40px 38px; pointer-events:none}
+  .top{display:flex; align-items:center; gap:10px}
+  .mark rect{fill:var(--hue)}
+  .name{font-size:16px; font-weight:500; letter-spacing:-.01em; color:var(--ink-soft)}
+
+  .middle{flex:1}
+
+  /* The mix, read from across a room. Everything else is smaller than it
+     by a long way, which is what makes the screen calm rather than busy. */
+  .mix{font-size:clamp(38px,6.4vw,84px); font-weight:300; letter-spacing:-.035em;
+       line-height:1; margin:0 0 18px}
+  .said{font-size:17px; color:var(--ink-soft); line-height:1.5; max-width:46ch}
+  .said b{font-weight:400; color:var(--ink)}
+
+  /* One line of words, not a row of buttons. The controls live a tap away;
+     nothing that is needed once an hour is lit all night. */
+  .acts{display:flex; gap:26px; margin-top:34px; pointer-events:auto}
+  .acts button{background:none; border:0; padding:0; cursor:pointer;
+    font:inherit; font-size:16px; color:var(--ink-soft);
+    border-bottom:1px solid transparent; transition:color .4s, border-color .4s}
+  .acts button:hover{color:var(--ink); border-bottom-color:var(--ink)}
+  .acts button.lead{color:var(--ink)}
+
+  @media (max-width:560px){
+    .ui{padding:22px 22px 30px}
+    .said{font-size:15.5px}
+    .acts{gap:20px; flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="top">
+    <svg class="mark" width="18" height="14" viewBox="0 0 18 14" aria-hidden="true">
+      <rect x="0" y="1" width="3" height="12" rx="1.5"/>
+      <rect x="6" y="2.5" width="3" height="9" rx="1.5"/>
+      <rect x="12" y="4" width="3" height="6" rx="1.5"/>
+    </svg>
+    <span class="name">murmur</span>
+  </div>
+
+  <div class="middle"></div>
+
+  <h1 class="mix">Indoor pool</h1>
+  <p class="said">Mostly <b>the cool river</b>, filling the room.
+     Four other sounds further off. Fading out around six.</p>
+
+  <div class="acts">
+    <button class="lead">pause</button>
+    <button>sounds</button>
+    <button>mixes</button>
+    <button>more</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var c = document.getElementById("c"), x = c.getContext("2d");
+
+  /* A real mix: the Indoor pool preset. level is what you hear, 0 to 1. */
+  var SOUNDS = [
+    { key:"pool",    level:0.75, lead:false },
+    { key:"river",   level:0.89, lead:true  },
+    { key:"aquapark",level:0.60, lead:false },
+    { key:"locker",  level:0.59, lead:false },
+    { key:"showers", level:0.22, lead:false }
+  ];
+
+  /* Each sound's shape is seeded from its name, so rain never looks like
+     wind and a sound keeps its own silhouette between sessions. */
+  function seed(s){ var h=0,i; for(i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%100000; return h; }
+
+  var W=0,H=0,dpr=1;
+  function size(){
+    dpr = Math.min(window.devicePixelRatio||1, 2);
+    W = c.clientWidth; H = c.clientHeight;
+    c.width = Math.round(W*dpr); c.height = Math.round(H*dpr);
+    x.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", size);
+  size();
+
+  /* One band. A slow envelope dominates so each sound reads as a shape
+     rather than as noise; the detail term only keeps it from looking drawn
+     with a compass. */
+  function band(s, i, t){
+    var sd = seed(s.key);
+    /* Spread across more of the screen than before: the first pass left the
+       top fifth empty and crowded every band into one brown mass. */
+    var mid = H * (0.17 + 0.70 * (i / (SOUNDS.length - 1 || 1)));
+    var amp = H * (0.020 + 0.185 * s.level);
+    var drift = t * (0.000035 + (sd % 7) * 0.0000065);
+
+    x.beginPath();
+    x.moveTo(-40, H + 10);
+    var px;
+    for (px = -40; px <= W + 40; px += 7){
+      var u = px / Math.max(W, 1);
+      var slow   = Math.sin(u * 3.1 + sd * 0.013 + drift * 6.0);
+      var swell  = Math.sin(u * 7.9 + sd * 0.031 + drift * 9.4) * 0.52;
+      var detail = Math.sin(u * 19.0 + sd * 0.071 + drift * 15.0) * 0.17;
+      var y = mid - ((slow + swell + detail) / 1.69) * amp;
+      x.lineTo(px, y);
+    }
+    x.lineTo(W + 40, H + 10);
+    x.closePath();
+
+    /* The loud one is warm and clearly present; the quiet ones stay cool
+       and nearly colourless, so the sounds read apart instead of blending
+       into one brown mass. Level drives presence, not just height. */
+    var g = x.createLinearGradient(0, mid - amp, 0, mid + amp * 2.6);
+    if (s.lead){
+      g.addColorStop(0,   "rgba(214,160,96,0.46)");
+      g.addColorStop(0.45,"rgba(176,124,74,0.25)");
+      g.addColorStop(1,   "rgba(150,106,64,0.03)");
+    } else {
+      var a = 0.035 + 0.105 * s.level;
+      g.addColorStop(0,   "rgba(196,200,206," + a.toFixed(3) + ")");
+      g.addColorStop(0.55,"rgba(150,154,162," + (a * 0.40).toFixed(3) + ")");
+      g.addColorStop(1,   "rgba(140,144,152,0)");
+    }
+    x.fillStyle = g;
+    x.fill();
+  }
+
+  function frame(t){
+    x.clearRect(0, 0, W, H);
+    /* Back to front, so the quiet sounds sit behind the loud one. */
+    var order = SOUNDS.slice().sort(function(a,b){ return a.level - b.level; });
+    order.forEach(function(s){ band(s, SOUNDS.indexOf(s), t); });
+    requestAnimationFrame(frame);
+  }
+
+  /* Someone who has asked their device to stop moving things gets one
+     still frame, which is a complete picture rather than a degraded one. */
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    x.clearRect(0,0,W,H);
+    SOUNDS.slice().sort(function(a,b){ return a.level-b.level; })
+      .forEach(function(s){ band(s, SOUNDS.indexOf(s), 0); });
+  } else {
+    requestAnimationFrame(frame);
+  }
+})();
+</script>
+</body>
+</html>

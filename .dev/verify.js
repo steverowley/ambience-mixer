@@ -26,7 +26,15 @@ ok("backdrop-filter blur used sparingly (<=3: header, dock, dialog)", bf <= 3, "
    beside a bed any more. */
 ok("nothing animates on its own", !/animation:[^;}]*infinite/.test(html));
 ok("playing is a brighter edge, not a glow",
-   /\.layer\.playing\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
+   /\.sound\.playing \.playbtn\{border-color/.test(html) && !/box-shadow:0 0 44px/.test(html));
+/* The control's class is rewritten on every paint, so it must keep its base
+   class. Assigning "wave" here (the name the control carried before a card
+   became a row) silently deleted .band from the element on first paint and
+   collapsed the name, the distance and the waveform onto one clipped line.
+   Nothing caught it: the static checks read the source, the stub DOM has no
+   layout, and the preview harness writes markup without ever painting. */
+ok("paintWave keeps the control's base class",
+   /w\.className=L\.volume>0\?"band":"band off"/.test(html));
 ok("renderMixes has no innerHTML for names", !/el\.innerHTML='<span class="name">'/.test(html));
 ok("loop checkbox focusable", /\.toggle input\{position:absolute; width:1px/.test(html));
 ok("extractId catch-all removed", !/m=input\.match\(\/\(\[a-zA-Z0-9_-\]\{11\}\)\/\)/.test(html));
@@ -498,7 +506,18 @@ ok("the update offer never reloads on its own", /btnUpdate"\)\.addEventListener/
 ok("accepting an update flushes the session first", /btnUpdate"\)\.addEventListener\("click",function\(\)\{\s*flushSession\(\)/.test(html));
 ok("the waiting worker is told to activate", /postMessage\("skipWaiting"\)/.test(html));
 ok("the worker honours skipWaiting", /e\.data === "skipWaiting"/.test(sw));
-ok("the cache version was bumped", /murmur-v4/.test(sw));
+/* The cache name is a hash of index.html, so the shell cannot change
+   without sw.js changing too. That matters because the update prompt only
+   fires when the worker changes: navigations are network-first so a reload
+   is always fresh, but an app left playing all night never learns there is
+   a new build. Run node .dev/stamp.js after editing index.html. */
+const CR = String.fromCharCode(13);
+const shellTag = "murmur-" + require("crypto").createHash("sha1")
+  .update(fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").split(CR).join(""))
+  .digest("hex").slice(0, 8);
+ok("the service worker is stamped with the current shell",
+   sw.indexOf('var CACHE = "' + shellTag + '"') !== -1,
+   "stale stamp: run node .dev/stamp.js");
 ok("Later dismisses without reloading", /btnUpdateLater[\s\S]{0,140}hidden=true/.test(html));
 
 // ---- contextual controls ----
@@ -517,7 +536,7 @@ ok("Share is disabled with no layers", dis("btnShare"));
 ok("a disabled control explains itself", /Add a layer first|Add a layer before/.test(byId.btnPlayAll.title + byId.btnSave.title));
 
 /* A synth layer needs no YouTube player, so it actually reaches the playing
-   state in the stub — the video path throws on the absent iframe API. */
+   state in the stub: the video path throws on the absent iframe API. */
 const cl = T.addLayer({ synth: "rain", volume: 60, autoplay: false });
 ok("Play all enables once a layer exists", !dis("btnPlayAll"));
 ok("Pause all stays disabled while nothing plays", dis("btnStopAll"));
@@ -547,7 +566,7 @@ ok("the volume control is inert for iOS video layers",
 ok("status does not claim a percentage it cannot set", /IS_IOS && !isSynth\(L\)\) \? "full volume \(iOS\)"/.test(html));
 ok("the iOS notice explains the cause", /Apple does not allow web pages to set the volume/.test(html));
 ok("the iOS notice is dismissible and remembered", /ambience\.iosNote/.test(html));
-ok("the iOS notice is hidden by default", /id="iosNote" class="resume" hidden/.test(html));
+ok("the iOS notice is hidden by default", /id="iosNote" class="notice" hidden/.test(html));
 ok("synth layers keep working volume on iOS", !/IS_IOS[\s\S]{0,80}isSynth\(L\)\)[\s\S]{0,40}disabled/.test(html));
 
 // ---- start position ----
@@ -576,7 +595,7 @@ const pool = T.PRESETS.find(p => p.name === "Indoor pool");
 ok("the preset exists", !!pool);
 ok("it is offered first", T.PRESETS[0].name === "Indoor pool");
 ok("it has five layers", pool && pool.layers.length === 5, pool && pool.layers.length);
-ok("every id is a bare 11-character video id — no timecodes",
+ok("every id is a bare 11-character video id: no timecodes",
    pool.layers.every(l => /^[A-Za-z0-9_-]{11}$/.test(l.id)));
 ok("the blend matches the shared link exactly", (function(){
   const want = { aJK6xiAx_Mg:[75,1], u3z2PO8W9ww:[59,1], OuYtZhrFo4U:[22,1],
