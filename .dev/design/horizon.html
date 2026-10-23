@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>murmur — the horizon</title>
+<!--
+  Direction B: THE HORIZON.
+
+  The same premise as the field, resolved the opposite way. Instead of five
+  soft bands layered into a room, the whole mix is summed into one line and
+  drawn enormous across the screen: a landscape made of what you are
+  listening to.
+
+  The line is the real sum of the sounds, so turning one up changes the
+  shape of the horizon. Above it is the sky and below it is the ground, one
+  step darker. Nothing else is on the screen except the mix's name and one
+  sentence, set small against all that space, which is the proportion a
+  calm thing needs.
+
+  Where the field is warm and enveloping, this is still and wide. It is
+  closer to a print than to an interface.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box; margin:0; padding:0}
+  :root{
+    --sky:#121110;
+    --ground:#0A0908;
+    --ink:#EFECE6;
+    --ink-soft:#8B8780;
+    --hue:#C9975C;
+  }
+  html,body{height:100%}
+  body{
+    background:var(--sky); color:var(--ink);
+    font-family:"Figtree",system-ui,sans-serif; font-weight:300;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  canvas{position:fixed; inset:0; width:100%; height:100%; display:block}
+
+  .ui{position:fixed; inset:0; padding:34px 40px 38px;
+      display:flex; flex-direction:column; pointer-events:none}
+  .top{display:flex; align-items:center; gap:10px}
+  .mark rect{fill:var(--hue)}
+  .name{font-size:16px; font-weight:500; letter-spacing:-.01em; color:var(--ink-soft)}
+
+  /* The title sits high, in the sky, so the horizon below it is the
+     picture. A calm screen gives most of itself to one thing. */
+  .head{margin-top:9vh; max-width:30ch}
+  .mix{font-size:clamp(34px,5.2vw,68px); font-weight:300; letter-spacing:-.035em;
+       line-height:1.02; margin:0 0 16px}
+  .said{font-size:16.5px; color:var(--ink-soft); line-height:1.55}
+  .said b{font-weight:400; color:var(--ink)}
+
+  .foot{margin-top:auto; display:flex; gap:26px; pointer-events:auto}
+  .foot button{background:none; border:0; padding:0; cursor:pointer; font:inherit;
+    font-size:16px; color:var(--ink-soft);
+    border-bottom:1px solid transparent; transition:color .4s, border-color .4s}
+  .foot button:hover{color:var(--ink); border-bottom-color:var(--ink)}
+  .foot button.lead{color:var(--ink)}
+
+  @media (max-width:560px){
+    .ui{padding:22px 22px 30px}
+    .head{margin-top:7vh}
+    .said{font-size:15.5px}
+    .foot{gap:20px; flex-wrap:wrap}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="ui">
+  <div class="top">
+    <svg class="mark" width="18" height="14" viewBox="0 0 18 14" aria-hidden="true">
+      <rect x="0" y="1" width="3" height="12" rx="1.5"/>
+      <rect x="6" y="2.5" width="3" height="9" rx="1.5"/>
+      <rect x="12" y="4" width="3" height="6" rx="1.5"/>
+    </svg>
+    <span class="name">murmur</span>
+  </div>
+
+  <div class="head">
+    <h1 class="mix">Indoor pool</h1>
+    <p class="said">Mostly <b>the cool river</b>, filling the room.
+       Four other sounds further off. Fading out around six.</p>
+  </div>
+
+  <div class="foot">
+    <button class="lead">pause</button>
+    <button>sounds</button>
+    <button>mixes</button>
+    <button>more</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var c = document.getElementById("c"), x = c.getContext("2d");
+
+  var SOUNDS = [
+    { key:"pool",     level:0.75 },
+    { key:"river",    level:0.89 },
+    { key:"aquapark", level:0.60 },
+    { key:"locker",   level:0.59 },
+    { key:"showers",  level:0.22 }
+  ];
+  function seed(s){ var h=0,i; for(i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))%100000; return h; }
+  var SEEDS = SOUNDS.map(function(s){ return seed(s.key); });
+
+  var W=0,H=0,dpr=1;
+  function size(){
+    dpr = Math.min(window.devicePixelRatio||1, 2);
+    W = c.clientWidth; H = c.clientHeight;
+    c.width = Math.round(W*dpr); c.height = Math.round(H*dpr);
+    x.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener("resize", size);
+  size();
+
+  /* The horizon is the sum of every sound, each weighted by its level, so
+     the shape of the landscape really is the shape of the mix. */
+  function heightAt(u, t){
+    var sum = 0, weight = 0, i;
+    for (i = 0; i < SOUNDS.length; i++){
+      var sd = SEEDS[i], lv = SOUNDS[i].level;
+      var drift = t * (0.00002 + (sd % 5) * 0.0000045);
+      var slow  = Math.sin(u * 2.3 + sd * 0.011 + drift * 5.0);
+      var swell = Math.sin(u * 5.7 + sd * 0.029 + drift * 7.5) * 0.46;
+      var fine  = Math.sin(u * 13.1 + sd * 0.067 + drift * 11.0) * 0.14;
+      sum += (slow + swell + fine) * lv;
+      weight += lv;
+    }
+    return sum / (weight * 1.6 || 1);
+  }
+
+  function frame(t){
+    x.clearRect(0,0,W,H);
+
+    var mid = H * 0.60;
+    var amp = H * 0.13;
+
+    /* the ground */
+    x.beginPath();
+    x.moveTo(-10, H + 10);
+    var px;
+    for (px = -10; px <= W + 10; px += 6){
+      x.lineTo(px, mid - heightAt(px / Math.max(W,1), t) * amp);
+    }
+    x.lineTo(W + 10, H + 10);
+    x.closePath();
+    x.fillStyle = "#0A0908";
+    x.fill();
+
+    /* the one warm line along its edge: the mix, lit */
+    x.beginPath();
+    for (px = -10; px <= W + 10; px += 6){
+      var y = mid - heightAt(px / Math.max(W,1), t) * amp;
+      if (px === -10) x.moveTo(px, y); else x.lineTo(px, y);
+    }
+    x.strokeStyle = "rgba(201,151,92,0.70)";
+    x.lineWidth = 1.5;
+    x.stroke();
+
+    /* a second, quieter line further back, so the picture has depth
+       without anything that reads as a glow */
+    x.beginPath();
+    for (px = -10; px <= W + 10; px += 6){
+      var y2 = mid - 46 - heightAt(px / Math.max(W,1) + 2.4, t * 0.7) * amp * 0.62;
+      if (px === -10) x.moveTo(px, y2); else x.lineTo(px, y2);
+    }
+    x.strokeStyle = "rgba(190,184,174,0.13)";
+    x.lineWidth = 1;
+    x.stroke();
+
+    requestAnimationFrame(frame);
+  }
+
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    frameOnce();
+  } else {
+    requestAnimationFrame(frame);
+  }
+  function frameOnce(){
+    var save = window.requestAnimationFrame;
+    window.requestAnimationFrame = function(){};
+    frame(0);
+    window.requestAnimationFrame = save;
+  }
+})();
+</script>
+</body>
+</html>
