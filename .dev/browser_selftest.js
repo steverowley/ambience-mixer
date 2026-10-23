@@ -13,9 +13,13 @@ const MUTANTS = [
   { name: 'paintWave deletes the control class (shipped in PR #43 to #46)',
     from: 'w.className=L.volume>0?"band":"band off";',
     to:   'w.className=L.volume>0?"wave":"wave off";' },
-  { name: 'the visualiser hides the page that holds its video (shipped in PR #45)',
-    from: 'body.theatre-on .page > :not(.sounds){display:none}',
-    to:   'body.theatre-on .page{display:none}' }
+  /* The old visualiser bug was that the page, which then contained the
+     video, was hidden. The players now live in the stage, so the same class
+     of fault is the stage itself being hidden: that would stop every video
+     layer's audio and blank the visualiser. */
+  { name: 'the stage holding the players is hidden, which stops the sound',
+    from: '#stage{position:fixed; left:-10000px; top:0; width:1px; height:1px}',
+    to:   '#stage{display:none}' }
 ];
 
 let caught = 0;

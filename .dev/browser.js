@@ -134,18 +134,20 @@ async function main(){
     /* The empty state. */
     const empty = await evaluate('(() => {' +
       'const m = document.getElementById("masterVol");' +
-      'const r = m && m.getBoundingClientRect();' +
+      'const f = document.getElementById("field");' +
+      'const fr = f && f.getBoundingClientRect();' +
       'return { rows: document.querySelectorAll("#grid li").length,' +
-      ' masterOnPage: !!m && !m.closest(".sheet"),' +
-      ' masterVisible: !!r && r.width > 40,' +
-      ' bodyHeight: Math.round(document.body.getBoundingClientRect().height),' +
-      ' viewport: innerHeight };})()');
+      /* master now lives with the sounds it governs, inside their sheet */
+      ' masterWithSounds: !!m && !!m.closest("#sheetSounds"),' +
+      ' field: !!f, fieldW: fr ? Math.round(fr.width) : 0,' +
+      ' fieldH: fr ? Math.round(fr.height) : 0,' +
+      ' vw: innerWidth, vh: innerHeight };})()');
     ok('the empty state has no rows', empty.rows === 0, 'rows=' + empty.rows);
-    ok('master level is on the player, not inside a sheet', empty.masterOnPage);
-    ok('master level is actually visible', empty.masterVisible);
-    ok('the empty page does not leave a tall void',
-      empty.bodyHeight < empty.viewport * 1.2,
-      'body ' + empty.bodyHeight + 'px vs viewport ' + empty.viewport + 'px');
+    ok('master level sits with the sounds it governs', empty.masterWithSounds);
+    ok('the field is present', empty.field);
+    ok('the field fills the viewport',
+      empty.fieldW >= empty.vw - 1 && empty.fieldH >= empty.vh - 1,
+      empty.fieldW + 'x' + empty.fieldH + ' in ' + empty.vw + 'x' + empty.vh);
 
     /* A preset loads. */
     await evaluate('(() => { document.getElementById("btnOpenMixes").click(); return 1; })()');
@@ -155,6 +157,35 @@ async function main(){
       'const n = p.textContent.trim().split("\\n")[0]; p.click(); return n; })()');
     ok('a starter preset can be loaded', !!presetName, 'got ' + presetName);
     await sleep(3000);
+
+    /* The players must survive the UI that controls them. This is the whole
+       reason they live in the stage: a row can sit in a sheet that closes,
+       and a player that gets hidden stops producing sound. */
+    const stage = await evaluate('(() => {' +
+      'const st = document.getElementById("stage");' +
+      'const inStage = st ? st.querySelectorAll(".thumb").length : 0;' +
+      'const inRows = document.querySelectorAll("#grid li .thumb:not(.synth)").length;' +
+      'return { inStage, inRows,' +
+      ' stageHidden: st ? getComputedStyle(st).display === "none" : true,' +
+      ' frames: document.querySelectorAll("#stage iframe").length };})()');
+    ok('the players live in the stage', stage.inStage > 0, JSON.stringify(stage));
+    ok('no player is trapped inside a row', stage.inRows === 0, 'in rows: ' + stage.inRows);
+    ok('the stage is never display:none', !stage.stageHidden);
+
+    /* The field has to have actually painted, not merely exist. */
+    const painted = await evaluate('(() => {' +
+      'const f = document.getElementById("field");' +
+      'if (!f || !f.getContext) return { ok: false, why: "no canvas" };' +
+      'const g = f.getContext("2d");' +
+      'const d = g.getImageData(0, 0, f.width, f.height).data;' +
+      'let lit = 0;' +
+      'for (let i = 3; i < d.length; i += 400) if (d[i] > 6) lit++;' +
+      'return { ok: lit > 20, lit };})()');
+    ok('the field has drawn the mix', painted.ok, JSON.stringify(painted));
+
+    /* Open the sounds sheet: the rows live there now. */
+    await evaluate('(() => { document.getElementById("btnOpenSounds").click(); return 1; })()');
+    await sleep(600);
 
     /* Every row is laid out rather than collapsed. This is the check that
        would have caught all three of the shipped bugs above. */

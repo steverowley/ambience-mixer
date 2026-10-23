@@ -126,7 +126,7 @@ body{
 
 /* what is playing */
 .now{margin:0 0 30px}
-.now h1{font-size:30px; font-weight:300; letter-spacing:-.02em; line-height:1.15; margin:0}
+.now h1{font-weight:300; letter-spacing:-.02em; margin:0}
 .sum{margin:7px 0 0; font-size:15px; color:var(--ink-soft)}
 
 /* The first run puts the starter mixes where the rows will be, rather
@@ -140,6 +140,36 @@ body{
 @media (max-width:820px){ .starters{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:520px){ .starters{grid-template-columns:1fr} }
 
+/* ---------- the room ----------
+   The field is the screen: the sounds drawn as soft bands, the loudest one
+   warm. Everything else sits on it in one column, the picture taking the
+   top of the screen and the words the bottom. */
+#field{position:fixed; inset:0; width:100%; height:100%; display:block; z-index:0}
+.page{position:relative; z-index:1; min-height:100dvh; display:flex; flex-direction:column}
+.grow{flex:1 1 auto; min-height:24px}
+
+/* The players. Never display:none, or the sound stops: simply put where
+   nobody has to look at them. A fixed element inside this still fills the
+   viewport, which is how the visualiser keeps working. */
+#stage{position:fixed; left:-10000px; top:0; width:1px; height:1px}
+
+.roomtitle{font-size:clamp(36px,5.6vw,76px); font-weight:300; letter-spacing:-.035em;
+  line-height:1.02; margin:0 0 16px}
+.said{font-size:17px; color:var(--ink-soft); line-height:1.55; max-width:48ch; margin:0}
+.said b{font-weight:400; color:var(--ink)}
+
+/* Words, not a row of buttons. */
+.acts{display:flex; align-items:center; gap:26px; margin:34px 0 0; flex-wrap:wrap}
+.acts button{background:none; border:0; padding:0; height:auto; min-height:0; cursor:pointer;
+  font:inherit; font-size:16px; color:var(--ink-soft); border-radius:0;
+  border-bottom:1px solid transparent; transition:color .4s, border-color .4s}
+.acts button:hover{color:var(--ink); border-bottom-color:var(--ink)}
+.acts button.lead{color:var(--ink)}
+.acts button[disabled]{opacity:.38; cursor:default}
+.acts .left{font-size:14px; color:var(--ink-soft); margin-left:auto}
+@media (max-width:560px){ .acts{gap:20px} .said{font-size:15.5px} }
+
+/* ---------- a sound is a row ---------- */
 /* ---------- a sound is a row ---------- */
 /* ---------- a sound is a row ---------- */
 .sounds{list-style:none; margin:0; padding:0}
@@ -411,10 +441,11 @@ body.theatre-on{overflow:hidden}
    display:none on the page hid the one thing the visualiser exists to
    show. Hide everything except the row being visualised: the iframe stays
    rendered, and the compositor is still spared the rest of the screen. */
-body.theatre-on .page > :not(.sounds){display:none}
-body.theatre-on .sounds li:not(.is-theatre){display:none}
-body.theatre-on .sound.is-theatre > :not(.thumb){display:none}
-body.theatre-on .sound.is-theatre{display:block; padding:0; margin:0; background:none}
+/* The player now lives in the stage, outside the page and outside every
+   sheet, so both can simply be hidden: the one thing the visualiser exists
+   to show is in neither of them. */
+body.theatre-on .page{display:none}
+body.theatre-on .sheet{display:none}
 
 /* ---------- toast and dialog ---------- */
 .toast{position:fixed; bottom:34px; left:50%; transform:translateX(-50%) translateY(6px); opacity:0;
@@ -445,7 +476,7 @@ body.dialog-on{overflow:hidden}
   .page{padding:28px 18px calc(28px + env(safe-area-inset-bottom))}
   .wordmark{margin-bottom:26px}
   .now{margin-bottom:22px}
-  .now h1{font-size:25px}
+  .roomtitle{letter-spacing:-.025em}
   .sound{gap:11px; padding:9px 10px; margin:0 -10px 4px}
   .extras{padding:2px 10px 12px 61px; margin:0 -10px}
   .transport{padding-top:26px; gap:13px}
@@ -474,6 +505,9 @@ body.dialog-on{overflow:hidden}
 </head>
 <body>
 
+<canvas id="field" aria-hidden="true"></canvas>
+<div id="stage" aria-hidden="true"></div>
+
 <main class="page">
   <p class="wordmark">
     <svg class="mark" width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" focusable="false">
@@ -482,17 +516,23 @@ body.dialog-on{overflow:hidden}
       <rect x="12" y="4" width="3" height="6" rx="1.5"/>
     </svg>murmur</p>
 
+  <div class="grow"></div>
+
   <header class="now">
-    <h1 id="mixname">nothing playing</h1>
-    <p class="sum" id="sum"></p>
+    <h1 class="roomtitle" id="mixname">nothing playing</h1>
+    <p class="said" id="sum"></p>
   </header>
 
-  <div class="master">
-    <label for="masterVol">everything</label>
-    <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
-  </div>
 
-  <ul class="sounds" id="grid"></ul>
+
+  <footer class="acts">
+    <button class="lead" id="btnPlayAll">play</button>
+    <button id="btnStopAll">pause</button>
+    <button id="btnOpenSounds">sounds</button>
+    <button id="btnOpenMixes">mixes</button>
+    <button id="btnOpenMore">more</button>
+    <span class="left" id="timerLeft"></span>
+  </footer>
 
   <div id="empty" class="empty">
     <p>start with a blend, or <b>add a sound</b> of your own.</p>
@@ -522,22 +562,26 @@ body.dialog-on{overflow:hidden}
     <button id="btnIosOk">got it</button>
   </div>
 
-  <footer class="transport">
-    <button class="primary with-ico" id="btnPlayAll"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9.2 7.4v9.2a.9.9 0 0 0 1.37.77l7.03-4.35a.9.9 0 0 0 0-1.53L10.57 6.6a.9.9 0 0 0-1.37.8z"/></svg>play all</button>
-    <button id="btnStopAll" class="with-ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.4" y="6.9" width="2.9" height="10.2" rx="1.2"/><rect x="12.7" y="6.9" width="2.9" height="10.2" rx="1.2"/></svg>pause all</button>
-    <div class="spacer"></div>
-    <button class="quiet" id="btnOpenAdd">add a sound</button>
-    <span class="sep" aria-hidden="true">&middot;</span>
-    <button class="quiet" id="btnOpenMixes">mixes</button>
-    <span class="sep" aria-hidden="true">&middot;</span>
-    <button class="quiet" id="btnOpenMore">more</button>
-    <span class="left" id="timerLeft"></span>
-  </footer>
 </main>
 
 <!-- ============ sheets ============
      Everything that builds a mix. Opened on purpose and closed again, so
      the player is never buried under its own tooling. -->
+
+<section class="sheet" id="sheetSounds" role="dialog" aria-modal="true" aria-labelledby="sheetSoundsTitle" hidden>
+  <div class="sheet-card">
+    <div class="sheet-head">
+      <h2 id="sheetSoundsTitle">sounds</h2>
+      <button class="x" data-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6.4 5.3 5 6.7l5.3 5.3L5 17.3l1.4 1.4 5.3-5.3 5.3 5.3 1.4-1.4-5.3-5.3 5.3-5.3-1.4-1.4-5.3 5.3z"/></svg></button>
+    </div>
+    <div class="master">
+      <label for="masterVol">everything</label>
+      <input type="range" class="mvol" id="masterVol" min="0" max="100" value="100" aria-label="Master volume">
+    </div>
+    <ul class="sounds" id="grid"></ul>
+    <button class="quiet" id="btnOpenAdd">add a sound</button>
+  </div>
+</section>
 
 <section class="sheet" id="sheetAdd" role="dialog" aria-modal="true" aria-labelledby="sheetAddTitle" hidden>
   <div class="sheet-card">
@@ -1302,17 +1346,19 @@ body.dialog-on{overflow:hidden}
 
   function theatreThumb(){
     if(!theatreLayer) return null;
-    var card=document.getElementById("card_"+theatreLayer.uid);
-    return card?card.querySelector(".thumb"):null;
+    return thumbOf(theatreLayer);
   }
   function applyFit(){
     var t=theatreThumb(); if(t) t.classList.toggle("fit",fitMode);
     tfit.textContent=fitMode?"Fill":"Fit";
   }
+  /* The player is in the stage, not in the row, so it is found by id rather
+     than by searching the card. */
+  function thumbOf(L){ return document.getElementById("thumb_"+L.uid); }
   function theatreDomOff(L){
-    var card=document.getElementById("card_"+L.uid); if(!card) return;
-    card.classList.remove("is-theatre");
-    var t=card.querySelector(".thumb"); if(t){ t.classList.remove("theatre"); t.classList.remove("fit"); }
+    var card=document.getElementById("card_"+L.uid);
+    if(card) card.classList.remove("is-theatre");
+    var t=thumbOf(L); if(t){ t.classList.remove("theatre"); t.classList.remove("fit"); }
   }
   function enterTheatre(L){
     /* Theatre mode shows the layer's video. A synth layer has none: its tile
@@ -1324,8 +1370,8 @@ body.dialog-on{overflow:hidden}
     if(theatreLayer) theatreDomOff(theatreLayer);
     theatreLayer=L;
     var card=document.getElementById("card_"+L.uid);
-    if(card){ card.classList.add("is-theatre");
-      var t=card.querySelector(".thumb"); if(t) t.classList.add("theatre"); }
+    if(card) card.classList.add("is-theatre");
+    var t=thumbOf(L); if(t) t.classList.add("theatre");
     document.body.classList.add("theatre-on");
     shade.classList.add("on"); shade.style.opacity=dimLevel;
     catcher.classList.add("on"); tbar.classList.add("on");
@@ -1509,6 +1555,18 @@ body.dialog-on{overflow:hidden}
       var el=document.getElementById("card_"+L.uid);
       if(!el){
         el=document.createElement("li"); el.className="sound"; el.id="card_"+L.uid;
+        /* The player lives in the stage, never in the row. A row can be
+           inside a sheet that closes; a player that is hidden stops.
+           Guarded because the verification harness has no stage element. */
+        var stage=document.getElementById("stage");
+        if(stage && stage.appendChild && !isSynth(L) && !document.getElementById("thumb_"+L.uid)){
+          var th=document.createElement("div");
+          th.className="thumb"; th.id="thumb_"+L.uid;
+          var yt=document.createElement("div");
+          yt.className="yt"; yt.id="yt_"+L.uid;
+          th.appendChild(yt);
+          stage.appendChild(th);
+        }
         var synth=isSynth(L);
         /* A sound is a row: name, distance, waveform. Everything else is
            real but lives in the row you expand, because a control needed
@@ -1520,7 +1578,7 @@ body.dialog-on{overflow:hidden}
         el.innerHTML=
           (synth
             ? '<div class="thumb synth" aria-hidden="true">'+SYNTH_GLYPH+'</div>'
-            : '<div class="thumb"><div class="yt" id="yt_'+L.uid+'"></div></div>')+
+            : '')+
           '<span class="sr-only" id="vname_'+L.uid+'">Level</span>'+
           '<div class="band" id="vol_'+L.uid+'" role="slider" aria-valuemin="0" aria-valuemax="100"'+
             ((IS_IOS && !synth)?' aria-disabled="true" title="iOS does not allow web pages to set the volume of a video"':' tabindex="0"')+
@@ -1737,6 +1795,41 @@ body.dialog-on{overflow:hidden}
       r.setProperty(name, mixHex(NIGHT_BASE[k],NIGHT_DEEP[k],t));
     }
   }
+  /* The screen's question answered in words: what am I listening to, and
+     what is it mostly? Names the loudest sound rather than counting,
+     because a count is not an answer. No numerals, so the sentence reads
+     the way someone would say it out loud. */
+  var COUNT_WORD=["no","one","two","three","four","five","six","seven",
+    "eight","nine","ten","eleven","twelve"];
+  function sayWhatIsPlaying(s, live){
+    var best=null;
+    layers.forEach(function(L){
+      if(!L.playing || L.unavailable || L.muted) return;
+      if(soloLayer && soloLayer!==L) return;
+      if(!best || L.volume>best.volume) best=L;
+    });
+    while(s.firstChild) s.removeChild(s.firstChild);
+    if(!best){ s.textContent="all quiet."; return; }
+
+    s.appendChild(document.createTextNode("mostly "));
+    var b=document.createElement("b");
+    /* textContent, never innerHTML: a YouTube title is somebody else's */
+    b.textContent=(best.title||"that sound").toLowerCase();
+    s.appendChild(b);
+    s.appendChild(document.createTextNode(", "+nearness(best.volume)+"."));
+
+    var others=live-1;
+    if(others>0){
+      var w=COUNT_WORD[others]||String(others);
+      s.appendChild(document.createTextNode(" "+w+" other sound"+
+        (others===1?"":"s")+" further off."));
+    }
+    if(sleepEndsAt){
+      var d=new Date(sleepEndsAt), h=d.getHours()%12||12;
+      s.appendChild(document.createTextNode(" fading out around "+h+"."));
+    }
+  }
+
   /* The screen answers one question: what am I listening to? */
   function renderNow(){
     applyNight();
@@ -1747,8 +1840,7 @@ body.dialog-on{overflow:hidden}
     t.textContent = n ? (currentMixName || "your mix") : "nothing playing";
     if(!n) s.textContent="";
     else if(live===0) s.textContent="all quiet.";
-    else if(live===1) s.textContent="one sound.";
-    else s.textContent=live+" sounds together.";
+    else { sayWhatIsPlaying(s, live); return; }
   }
   function refreshEmpty(){
     renderNow();
@@ -2351,7 +2443,7 @@ body.dialog-on{overflow:hidden}
      sounds, the YouTube field, the presets, the saved mixes, master
      volume, the sleep timer and the wake lock. They used to occupy the
      main screen permanently, which turned a player into a workbench. */
-  var SHEETS={add:"sheetAdd", mixes:"sheetMixes", more:"sheetMore"};
+  var SHEETS={sounds:"sheetSounds", add:"sheetAdd", mixes:"sheetMixes", more:"sheetMore"};
   var openSheetEl=null, sheetOpener=null;
   function closeSheet(){
     if(!openSheetEl) return;
@@ -2369,7 +2461,8 @@ body.dialog-on{overflow:hidden}
     var first=el.querySelector("button,input,select");
     if(first&&first.focus) first.focus();
   }
-  [["btnOpenAdd","add"],["btnOpenMixes","mixes"],["btnOpenMore","more"]].forEach(function(p){
+  [["btnOpenSounds","sounds"],["btnOpenAdd","add"],["btnOpenMixes","mixes"],
+   ["btnOpenMore","more"]].forEach(function(p){
     var b=document.getElementById(p[0]);
     if(b) b.addEventListener("click",function(){ sheetOpener=b; showSheet(p[1]); });
   });
@@ -2533,6 +2626,117 @@ body.dialog-on{overflow:hidden}
       }).catch(function(){});
     });
   }
+  /* ---------- the field ----------
+     The sounds drawn as the room rather than listed as a table. Each one
+     is a soft band: its level is the band's height and its presence, so a
+     sound turned down flattens toward nothing instead of dimming a bar.
+     The sound you are hearing most is the only thing with warmth in it,
+     which is the same answer the sentence underneath gives in words.
+
+     Soft gradients are used here against the house rule. That rule exists
+     to stop gradients being decoration on buttons and panels; here the
+     field is the subject, the way a photograph would be on a page that had
+     one.
+
+     This runs all night on a phone, so it is drawn at about twelve frames
+     a second rather than sixty, and not at all while the tab is hidden.
+     The drift takes about a minute to cross a band's own width, so the
+     lower rate is invisible and the work is a fraction of the cost. */
+  var fieldC=document.getElementById("field"), fieldX=null;
+  var fieldW=0, fieldH=0, fieldRaf=0, fieldLast=0;
+
+  function fieldSize(){
+    if(!fieldC || !fieldC.getContext) return;
+    var dpr=Math.min(window.devicePixelRatio||1, 2);
+    fieldW=fieldC.clientWidth; fieldH=fieldC.clientHeight;
+    fieldC.width=Math.round(fieldW*dpr); fieldC.height=Math.round(fieldH*dpr);
+    fieldX=fieldC.getContext("2d");
+    fieldX.setTransform(dpr,0,0,dpr,0,0);
+  }
+
+  function fieldBand(L, i, n, lead, t){
+    /* The same seed the row's waveform uses, so a sound keeps one
+       silhouette whether it is drawn small in the sheet or large as the
+       room. */
+    var sd=waveSeed(L.videoId||L.synth||L.kind||("uid"+L.uid));
+    var lv=Math.max(0, Math.min(100, L.volume))/100;
+    if(L.muted || L.unavailable || (soloLayer && soloLayer!==L)) lv*=0.18;
+    var mid=fieldH*(0.17+0.70*(n>1 ? i/(n-1) : 0.5));
+     var amp=fieldH*(0.020+0.185*lv);
+    var drift=t*(0.000035+(sd%7)*0.0000065);
+
+    fieldX.beginPath();
+    fieldX.moveTo(-40, fieldH+10);
+    var px;
+    for(px=-40; px<=fieldW+40; px+=7){
+      var u=px/Math.max(fieldW,1);
+      var slow=Math.sin(u*3.1+sd*0.013+drift*6.0);
+      var swell=Math.sin(u*7.9+sd*0.031+drift*9.4)*0.52;
+      var detail=Math.sin(u*19.0+sd*0.071+drift*15.0)*0.17;
+      fieldX.lineTo(px, mid-((slow+swell+detail)/1.69)*amp);
+    }
+    fieldX.lineTo(fieldW+40, fieldH+10);
+    fieldX.closePath();
+
+    var g=fieldX.createLinearGradient(0, mid-amp, 0, mid+amp*2.6);
+    if(lead){
+      g.addColorStop(0,   "rgba(214,160,96,0.46)");
+      g.addColorStop(0.45,"rgba(176,124,74,0.25)");
+      g.addColorStop(1,   "rgba(150,106,64,0.03)");
+    } else {
+      var a=0.035+0.105*lv;
+      g.addColorStop(0,   "rgba(196,200,206,"+a.toFixed(3)+")");
+      g.addColorStop(0.55,"rgba(150,154,162,"+(a*0.40).toFixed(3)+")");
+      g.addColorStop(1,   "rgba(140,144,152,0)");
+    }
+    fieldX.fillStyle=g;
+    fieldX.fill();
+  }
+
+  function fieldDraw(t){
+    if(!fieldX) fieldSize();
+    if(!fieldX) return;
+    fieldX.clearRect(0,0,fieldW,fieldH);
+    var n=layers.length;
+    if(!n) return;
+    /* loudest audible first, so it can be marked, then drawn back to front */
+    var lead=null;
+    layers.forEach(function(L){
+      if(!L.playing || L.unavailable || L.muted) return;
+      if(soloLayer && soloLayer!==L) return;
+      if(!lead || L.volume>lead.volume) lead=L;
+    });
+    var order=layers.slice().sort(function(a,b){ return a.volume-b.volume; });
+    order.forEach(function(L){ fieldBand(L, layers.indexOf(L), n, L===lead && L.volume>0, t); });
+  }
+
+  var FIELD_MS=80;   /* about twelve frames a second */
+  function fieldLoop(t){
+    fieldRaf=requestAnimationFrame(fieldLoop);
+    if(t-fieldLast < FIELD_MS) return;
+    fieldLast=t;
+    fieldDraw(t);
+  }
+  function fieldStart(){
+    if(fieldRaf || !fieldC || !fieldC.getContext) return;
+    if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      fieldDraw(0); return;   /* one still frame is a whole picture */
+    }
+    fieldRaf=requestAnimationFrame(fieldLoop);
+  }
+  function fieldStop(){
+    if(fieldRaf){ cancelAnimationFrame(fieldRaf); fieldRaf=0; }
+  }
+
+  if(fieldC && fieldC.getContext){
+    fieldSize();
+    window.addEventListener("resize", function(){ fieldSize(); fieldDraw(performance.now()); });
+    document.addEventListener("visibilitychange", function(){
+      if(document.hidden) fieldStop(); else fieldStart();
+    });
+    fieldStart();
+  }
+
   /* The night moves whether or not anything is clicked, so the surface
      has to keep up on its own. Five minutes is finer than the eye can
      see over an eight hour night and costs nothing. */
