@@ -12,7 +12,7 @@
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         {
           "key": "Permissions-Policy",
-          "value": "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"
+          "value": "geolocation=(), camera=(), microphone=(), payment=(), usb=(), browsing-topics=()"
         },
         { "key": "X-Frame-Options", "value": "DENY" }
       ]
