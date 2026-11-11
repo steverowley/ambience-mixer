@@ -1,24 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
-      <stop offset="0%" stop-color="#1a2133"/>
-      <stop offset="100%" stop-color="#0f1420"/>
-    </radialGradient>
-    <radialGradient id="orb" cx="35%" cy="30%" r="70%">
-      <stop offset="0%" stop-color="#a9d0e0"/>
-      <stop offset="100%" stop-color="#8ab4c9"/>
-    </radialGradient>
-    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%">
-      <feGaussianBlur stdDeviation="26" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-  <rect width="512" height="512" fill="url(#bg)"/>
-  <!-- concentric rings: the soundscape spreading out from a single source -->
-  <g fill="none" stroke="#8ab4c9" stroke-linecap="round">
-    <circle cx="256" cy="256" r="104" stroke-opacity=".30" stroke-width="7"/>
-    <circle cx="256" cy="256" r="150" stroke-opacity=".18" stroke-width="7"/>
-    <circle cx="256" cy="256" r="196" stroke-opacity=".09" stroke-width="7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="murmur">
+  <!--
+    A murmur, drawn: three strokes falling away. The same mark the app wears
+    beside its name, and the same shape its waveforms are made of.
+
+    Nothing here but a flat ground and three rounded bars. The icon this
+    replaced was the old app entire: a navy radial gradient, a blurred glow
+    filter and a pale blue orb, every one of which the design rejected.
+
+    The ground is the app's own #131211, which is also the manifest's
+    background_color, so the icon and the splash screen are one surface.
+  -->
+  <rect width="512" height="512" fill="#131211"/>
+  <g fill="#C9975C">
+    <rect x="116" y="106" width="64" height="300" rx="32"/>
+    <rect x="224" y="143" width="64" height="226" rx="32"/>
+    <rect x="332" y="181" width="64" height="150" rx="32"/>
   </g>
-  <circle cx="256" cy="256" r="58" fill="url(#orb)" filter="url(#glow)"/>
 </svg>

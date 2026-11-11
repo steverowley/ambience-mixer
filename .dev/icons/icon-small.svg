@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="murmur">
+  <!--
+    The small variant, for 16 and 32 pixels.
+
+    The full mark does not survive that far down: its gaps fall below one
+    pixel and the three strokes merge into a single blob. This redraws the
+    same idea on a 16 unit grid with every edge on a whole unit, so that at
+    16px each unit is one pixel and at 32px exactly two. Strokes are three
+    units wide with two between them, and the heights fall 12, 8, 4 rather
+    than 12, 9, 6, because at this size the difference has to be obvious.
+  -->
+  <rect width="16" height="16" fill="#131211"/>
+  <g fill="#C9975C">
+    <rect x="1" y="2" width="3" height="12" rx="1.5"/>
+    <rect x="6" y="4" width="3" height="8" rx="1.5"/>
+    <rect x="11" y="6" width="3" height="4" rx="1.5"/>
+  </g>
+</svg>
