@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="murmur">
+  <!--
+    The maskable variant. Android crops a maskable icon to whatever shape
+    the launcher uses, and only the central 80% circle is guaranteed to
+    survive. The mark is therefore drawn at 78% of its size on the standard
+    icon, which puts its corners about 320px apart on the diagonal against
+    a safe circle of roughly 410, and the ground runs to all four edges so
+    no crop can expose a corner.
+  -->
+  <rect width="512" height="512" fill="#131211"/>
+  <g fill="#C9975C">
+    <rect x="147" y="139" width="50" height="234" rx="25"/>
+    <rect x="231" y="168" width="50" height="176" rx="25"/>
+    <rect x="315" y="198" width="50" height="117" rx="25"/>
+  </g>
+</svg>
