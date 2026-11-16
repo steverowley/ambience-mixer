@@ -144,6 +144,30 @@ body{
 @media (max-width:820px){ .starters{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:520px){ .starters{grid-template-columns:1fr} }
 
+/* ---------- on a television ----------
+   Read from a sofa and driven by a remote, so everything grows and the
+   focus ring stops being polite. Televisions still overscan, so the page
+   keeps well clear of the edges. */
+.tv .page{padding:54px 72px 60px}
+.tv .wordmark{font-size:22px}
+.tv .said{font-size:26px; max-width:40ch; line-height:1.5}
+.tv .acts{gap:40px; margin-top:44px}
+.tv .acts button{font-size:26px}
+.tv .acts .left{font-size:20px}
+.tv .empty p{font-size:22px}
+.tv .preset .n{font-size:20px}
+.tv .preset .c{font-size:17px}
+.tv .sheet-card{padding:36px 40px}
+.tv .sheet-head h2{font-size:30px}
+.tv .sound .name{font-size:22px}
+.tv .sound .near{font-size:18px}
+
+/* The only way to see where the remote is pointing. Deliberately louder
+   than anything else on the screen, and neutral rather than the data hue,
+   which stays reserved for the sound you are hearing most. */
+.tv :focus-visible{outline:3px solid var(--ink); outline-offset:5px; border-radius:4px}
+
+/* ---------- the room ----------
 /* ---------- the room ----------
    The field is the screen: the sounds drawn as soft bands, the loudest one
    warm. Everything else sits on it in one column, the picture taking the
@@ -759,6 +783,16 @@ body.dialog-on{overflow:hidden}
 
      Built-in sounds have neither problem: Web Audio gain nodes are fully
      controllable and one unlocked context covers every layer. */
+  /* A television, or something pretending to be one. Chrome does not
+     exist on Android TV, so this is usually TV Bro or similar: a WebView
+     whose user agent carries the form factor. The query string override
+     is how the layout gets tested without a television in the room. */
+  var IS_TV = /(Android.*\bTV\b|GoogleTV|AFT[A-Z]|BRAVIA|SmartTV|SMART-TV|Tizen|Web0?OS)/i
+      .test(navigator.userAgent) || /[?&]tv=1/.test(location.search);
+  if(IS_TV && document.documentElement && document.documentElement.classList){
+    document.documentElement.classList.add("tv");
+  }
+
   var IS_IOS=(function(){
     var ua=navigator.userAgent||"";
     /* iPadOS 13+ reports as Macintosh, so touch points are the real tell. */
@@ -1545,8 +1579,12 @@ body.dialog-on{overflow:hidden}
     w.addEventListener("pointercancel",up);
     w.addEventListener("keydown",function(e){
       var step=e.shiftKey?10:3,used=true;
-      if(e.key==="ArrowRight"||e.key==="ArrowUp") setLayerVolume(L,L.volume+step);
-      else if(e.key==="ArrowLeft"||e.key==="ArrowDown") setLayerVolume(L,L.volume-step);
+      /* On a remote, up and down are the only way to move between things,
+         so the level must not swallow them. A keyboard keeps both axes. */
+      if(e.key==="ArrowRight") setLayerVolume(L,L.volume+step);
+      else if(e.key==="ArrowLeft") setLayerVolume(L,L.volume-step);
+      else if(!IS_TV && e.key==="ArrowUp") setLayerVolume(L,L.volume+step);
+      else if(!IS_TV && e.key==="ArrowDown") setLayerVolume(L,L.volume-step);
       else if(e.key==="Home") setLayerVolume(L,0);
       else if(e.key==="End") setLayerVolume(L,100);
       else used=false;
